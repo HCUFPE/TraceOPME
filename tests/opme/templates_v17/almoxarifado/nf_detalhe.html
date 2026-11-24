@@ -1,0 +1,252 @@
+{% extends "base.html" %}
+{% block titulo %}NF {{ nota.numero_nf }} · {{ APP_TITLE }}{% endblock %}
+
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <div>
+    <h1>NF {{ nota.numero_nf }}</h1>
+    <p>{{ nota.fornecedor }} · importada em {{ nota.data_importacao|data_hora_br }}</p>
+    <p class="mono pequeno suave">{{ nota.chave_nf }}</p>
+  </div>
+  <div class="acoes">
+    {% if concluidos %}
+      {% if mostrar_recebidos %}
+        <a class="botao secundario" href="/almoxarifado/nf/{{ nota.chave_nf }}">
+          Ocultar os {{ concluidos|length }} já recebidos
+        </a>
+      {% else %}
+        <a class="botao secundario" href="/almoxarifado/nf/{{ nota.chave_nf }}?mostrar_recebidos=1">
+          Mostrar os {{ concluidos|length }} já recebidos
+        </a>
+      {% endif %}
+    {% endif %}
+    <a class="botao secundario" href="/almoxarifado/nf">Voltar</a>
+  </div>
+</div>
+
+<div class="cartao" style="padding:.8rem 1.25rem">
+  <div class="entre">
+    <div>
+      <strong>{{ pendentes|length }}</strong> item(ns) pendente(s) de entrada
+      {% if concluidos %}
+        · <span class="suave">{{ concluidos|length }} já totalmente recebido(s)
+          {{ 'e oculto(s) desta lista' if not mostrar_recebidos }}</span>
+      {% endif %}
+    </div>
+    {% if not pendentes %}
+      <span class="etiqueta verde">nota totalmente recebida</span>
+    {% endif %}
+  </div>
+</div>
+
+{% if not itens %}
+  <div class="cartao">
+    <p class="aviso sucesso" style="margin:0">
+      Todos os itens desta nota já foram recebidos. Nada pendente.
+    </p>
+  </div>
+{% endif %}
+
+{% for item in itens %}
+<div class="cartao">
+  <div class="entre" style="flex-wrap:nowrap;align-items:flex-start">
+    {# flex:1 + min-width:0 deixam o bloco das descrições encolher: sem isso a
+       descrição HC, que é longa, empurrava o contador de pendentes para baixo. #}
+    <div style="flex:1;min-width:0">
+      <h3 style="margin-bottom:.15rem">{{ item.xProd }}</h3>
+      <p class="suave pequeno" style="margin:0">
+        Lote {% if item.precisa_lote %}<span class="etiqueta vermelho">não informado na NF{% if item.nLote %} (veio “{{ item.nLote }}”){% endif %}</span>{% else %}{{ item.nLote }}{% endif %} ·
+        validade {% if item.precisa_validade %}<span class="etiqueta vermelho">não informada na NF</span>{% else %}{{ item.dVal|data_br }}{% endif %} ·
+        valor unitário {{ item.vUnCom|moeda }}
+      </p>
+      {# A descrição do hospital aparece AQUI, logo abaixo da do fornecedor, e
+         não embaixo do campo: as duas lado a lado são a conferência — se não
+         descreverem o mesmo material, o código AGHU digitado está errado. #}
+      <div id="hc-{{ item.id_item }}" hidden></div>
+    </div>
+    <div style="text-align:right;flex:0 0 auto">
+      <div class="numero">{{ item.qtd_pendente }}</div>
+      <div class="rotulo">pendentes de {{ item.qtd_total }}</div>
+    </div>
+  </div>
+
+  {% if item.qtd_pendente > 0 %}
+    <form method="post" action="/almoxarifado/nf/{{ nota.chave_nf }}/receber" style="margin-top:1rem">
+      <input type="hidden" name="id_item" value="{{ item.id_item }}">
+
+      <!-- Campos opcionais primeiro, obrigatórios por último: o código de
+           barras costuma ser bipado, e o leitor manda Enter sozinho depois do
+           código — se ele viesse no meio do formulário, isso submeteria a
+           entrada antes de conferir o resto. Deixando-o por último, o Enter
+           do leitor é o próprio "Registrar entrada". -->
+      <div class="grade grade-3">
+        <div class="campo">
+          <label>Fornecedor</label>
+          <input type="text" name="fornecedor" value="{{ nota.fornecedor }}">
+        </div>
+        <div class="campo">
+          <label>Classificação</label>
+          <select name="tipo_entrada">
+            {% for codigo, nome in tipos.items() %}<option value="{{ codigo }}">{{ nome }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="campo">
+          <label>Números de série <span class="opcional">(um por linha, opcional)</span></label>
+          <textarea name="numeros_serie" rows="1"></textarea>
+        </div>
+      </div>
+
+      <div class="grade grade-3" style="margin-top:.75rem">
+        <div class="campo">
+          <label class="obrigatorio">Código AGHU</label>
+          <input type="text" name="codigo_aghu" required autocomplete="off"
+                 list="aghus-{{ item.id_item }}" class="campo-codigo-aghu"
+                 data-descritivo-alvo="hc-{{ item.id_item }}">
+          {% if item.aghus_conhecidos %}
+            <datalist id="aghus-{{ item.id_item }}">
+              {% for aghu in item.aghus_conhecidos %}<option value="{{ aghu }}">{% endfor %}
+            </datalist>
+          {% endif %}
+        </div>
+        <div class="campo">
+          <label class="obrigatorio">Marca / Fabricante</label>
+          <input type="text" name="marca_fabricante" required autocomplete="off"
+                 list="marcas-{{ item.id_item }}">
+          {% if item.marcas_conhecidas %}
+            <datalist id="marcas-{{ item.id_item }}">
+              {% for marca in item.marcas_conhecidas %}<option value="{{ marca }}">{% endfor %}
+            </datalist>
+          {% endif %}
+          {% if item.marcas_conhecidas|length > 1 %}
+            <div class="aviso alerta" style="margin-top:.5rem;padding:.5rem .75rem;font-size:.85rem">
+              Este código já veio de mais de uma marca antes
+              ({{ item.marcas_conhecidas|join(', ') }}) — confira qual é a desta entrega,
+              não repita a última sem olhar a embalagem.
+            </div>
+          {% elif item.marcas_conhecidas %}
+            <div class="dica">
+              Já visto antes como <strong>{{ item.marcas_conhecidas[0] }}</strong> — confirme
+              que é a mesma marca desta entrega antes de aceitar a sugestão.
+            </div>
+          {% endif %}
+        </div>
+        <div class="campo">
+          <label class="obrigatorio">Quantidade a receber</label>
+          <input type="number" name="quantidade" min="1" max="{{ item.qtd_pendente }}"
+                 value="{{ item.qtd_pendente }}" required>
+          <div class="dica">Pode receber parcialmente — o restante continua pendente.</div>
+        </div>
+      </div>
+
+      {% if item.precisa_lote or item.precisa_validade %}
+      <div class="aviso alerta" style="margin-top:.75rem">
+        <strong>A NF não trouxe {{ 'o lote' if item.precisa_lote }}{{ ' e ' if item.precisa_lote and item.precisa_validade }}{{ 'a validade' if item.precisa_validade }}.</strong>
+        Digite conforme a embalagem. Se bipar a etiqueta completa da embalagem no código de barras, o lote e a
+        validade dela são usados quando estes campos ficarem em branco.
+        <div class="grade grade-3" style="margin-top:.6rem">
+          {% if item.precisa_lote %}
+          <div class="campo">
+            <label class="obrigatorio">Lote</label>
+            <input type="text" name="nLote_manual" autocomplete="off" placeholder="como está na embalagem">
+          </div>
+          {% endif %}
+          {% if item.precisa_validade %}
+          <div class="campo">
+            <label class="obrigatorio">Validade</label>
+            <input type="date" name="dVal_manual">
+            <label class="pequeno" style="display:flex;gap:.4rem;align-items:center;font-weight:400;margin-top:.4rem">
+              <input type="checkbox" name="sem_validade" value="1" style="width:auto"> material sem validade
+            </label>
+          </div>
+          {% endif %}
+        </div>
+        <div class="dica">Se entrar mais de um lote, dê entrada em partes: informe a quantidade de cada lote por vez.</div>
+      </div>
+      {% endif %}
+
+      {% if item.codigo_sugerido %}
+      <div class="campo" style="margin-top:.75rem">
+        <label>Código de barras <span class="etiqueta verde">veio da NF</span></label>
+        <input type="text" value="{{ item.codigo_sugerido }}" readonly tabindex="-1"
+               style="background:var(--fundo, #f3f5f8);cursor:not-allowed" aria-readonly="true">
+        <div class="dica">Preenchido pelo cEAN da nota — não precisa bipar. Na embalagem, este número
+          aparece junto com validade e lote, ex.: (01){{ item.codigo_sugerido }}(17)…(10)…; o sistema separa sozinho na hora do uso.</div>
+      </div>
+      {% else %}
+      <div class="campo" style="margin-top:.75rem">
+        <label class="obrigatorio">Código de barras</label>
+        <div class="dica" style="margin-bottom:.3rem">A NF não trouxe o código de barras deste item. Bipe a embalagem
+          (pode ser a etiqueta completa) ou marque “Sem código de barras”.</div>
+        <input type="text" name="codigo_barras" required placeholder="bipe a embalagem"
+               class="campo-codigo-barras" value="">
+        <label class="pequeno" style="display:flex;gap:.4rem;align-items:center;font-weight:400;margin-top:.5rem">
+          <input type="checkbox" name="sem_codigo_barras" value="1" style="width:auto"
+                 class="marca-sem-codigo">
+          <strong>Sem código de barras</strong> — gerar QR
+        </label>
+        <div class="dica marca-dica-qr" hidden>
+          Será gerado <span class="mono">AGHU(lote {{ item.nLote or '—' }})</span> e a
+          etiqueta abre para imprimir.
+        </div>
+      </div>
+      {% endif %}
+
+      <button class="botao" style="margin-top:.75rem">Registrar entrada</button>
+    </form>
+  {% else %}
+    <p class="aviso sucesso" style="margin:1rem 0 0">Item totalmente recebido.</p>
+  {% endif %}
+</div>
+{% endfor %}
+
+<details class="cartao" style="margin-top:1.25rem">
+  <summary style="cursor:pointer"><strong>Excluir esta nota</strong>
+    <span class="suave pequeno">— importou a nota errada ou com dados errados?</span></summary>
+  {% if exclusao.pode_excluir %}
+    <form method="post" action="/almoxarifado/nf/{{ nota.chave_nf }}/excluir" style="margin-top:.8rem"
+          data-confirmar="Excluir a NF {{ nota.numero_nf }}?{% if exclusao.recebidas %} As {{ exclusao.recebidas }} unidade(s) que já entraram saem do estoque.{% endif %} Depois é possível importar o XML de novo.">
+      <p class="pequeno">
+        {% if exclusao.recebidas %}
+          <strong>{{ exclusao.recebidas }} unidade(s) desta nota já deram entrada</strong> e ainda não foram
+          movimentadas — a entrada delas será estornada (saem do estoque).
+        {% else %}Nenhum item desta nota deu entrada ainda.{% endif %}
+        A exclusão fica registrada no histórico com o seu usuário e o motivo.
+      </p>
+      <div class="campo" style="max-width:480px">
+        <label class="obrigatorio" for="motivo-exclusao">Motivo</label>
+        <input type="text" id="motivo-exclusao" name="motivo" required
+               placeholder="Ex.: importei o XML errado / código de barras errado">
+      </div>
+      <button class="botao secundario" style="color:var(--vermelho, #b3261e)">Excluir nota</button>
+    </form>
+  {% else %}
+    <p class="aviso erro pequeno" style="margin-top:.8rem">
+      Não é possível excluir: {{ exclusao.movimentadas }} unidade(s) desta nota já foram movimentadas
+      (usadas, em caixa ou com outro registro). Corrija essas unidades pela correção de cadastro.
+    </p>
+  {% endif %}
+</details>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Há um formulário por item da nota, então o comportamento é ligado por
+  // formulário e não por id — id repetido na página não funcionaria.
+  document.querySelectorAll(".marca-sem-codigo").forEach(function (marcador) {
+    const formulario = marcador.closest("form");
+    const campo = formulario.querySelector(".campo-codigo-barras");
+    const dica = formulario.querySelector(".marca-dica-qr");
+
+    function aplicar() {
+      campo.disabled = marcador.checked;
+      campo.required = !marcador.checked;
+      if (marcador.checked) campo.value = "";
+      campo.placeholder = marcador.checked ? "gerado automaticamente" : "bipe a embalagem";
+      if (dica) dica.hidden = !marcador.checked;
+    }
+    marcador.addEventListener("change", aplicar);
+    aplicar();
+  });
+
+</script>
+{% endblock %}

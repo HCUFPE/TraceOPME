@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block titulo %}Novo empenho · {{ APP_TITLE }}{% endblock %}
+
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <div>
+    <h1>Cadastrar empenho</h1>
+    <p>Registre o empenho, os dados da licitação e o código AGHU que ele cobre. O saldo é descontado
+       sozinho a cada uso na sala, enquanto o empenho estiver dentro da vigência.</p>
+  </div>
+  <div class="acoes"><a class="botao secundario" href="/consignados/empenhos">Voltar</a></div>
+</div>
+
+{% if resultado_importacao %}
+<div class="cartao" style="border-left:5px solid {{ 'var(--vermelho)' if resultado_importacao.erros else 'var(--verde)' }}">
+  <h2>Resultado da importação</h2>
+  <p><strong>{{ resultado_importacao.criados }}</strong> empenho(s) cadastrado(s)
+    {% if resultado_importacao.repetidos %} · {{ resultado_importacao.repetidos }} já existiam e foram ignorados{% endif %}
+    {% if resultado_importacao.erros %} · <strong>{{ resultado_importacao.erros|length }} linha(s) com problema</strong> (não cadastradas){% endif %}</p>
+  {% if resultado_importacao.erros %}
+    <div class="tabela-rolagem"><table>
+      <thead><tr><th>Linha</th><th>Problema</th></tr></thead>
+      <tbody>{% for e in resultado_importacao.erros %}<tr><td class="num">{{ e.linha }}</td><td>{{ e.mensagem }}</td></tr>{% endfor %}</tbody>
+    </table></div>
+    <p class="pequeno suave">Corrija essas linhas na planilha e importe de novo — o que já foi cadastrado não duplica.</p>
+  {% endif %}
+  <a class="botao secundario pequeno" href="/consignados/empenhos">Ver empenhos</a>
+</div>
+{% endif %}
+
+<form method="post" action="/consignados/empenhos/importar" enctype="multipart/form-data" class="cartao">
+  <h2>Importar de planilha (Excel)</h2>
+  <p class="pequeno">Uma linha por empenho. Colunas: <strong>Fornecedor, Código AGHU, Quantidade licitada,
+    Valor unitário, Início da vigência, Fim da vigência, Número do processo, Número do pregão, Número de
+    registro de licitação</strong>. Opcionais: Número do empenho, Material, Limite de segurança.
+    A ordem das colunas não importa — o sistema reconhece pelo título.</p>
+  <div style="display:flex;gap:.6rem;align-items:end;flex-wrap:wrap">
+    <div class="campo" style="margin:0"><label class="obrigatorio">Planilha (.xlsx ou .csv)</label>
+      <input type="file" name="arquivo" accept=".xlsx,.csv" required></div>
+    <button class="botao">Importar</button>
+    <a class="botao secundario" href="/static/modelo_empenhos.xlsx" download>Baixar modelo</a>
+  </div>
+</form>
+
+<form method="post" action="/consignados/empenhos/novo" class="cartao">
+  <h2>Cadastrar um empenho</h2>
+  <h3 class="pequeno suave" style="margin:.2rem 0 .6rem">Licitação</h3>
+  <div class="grade grade-3">
+    <div class="campo"><label>Número do processo</label>
+      <input type="text" name="numero_processo" placeholder="Ex.: 23538.001234/2026-11"></div>
+    <div class="campo"><label>Número do pregão</label>
+      <input type="text" name="numero_pregao" placeholder="Ex.: 45/2026"></div>
+    <div class="campo"><label>Número de registro de licitação</label>
+      <input type="text" name="numero_registro" placeholder="Ex.: ARP 112/2026"></div>
+    <div class="campo"><label>Início da vigência</label>
+      <input type="date" name="vigencia_inicio"></div>
+    <div class="campo"><label>Fim da vigência</label>
+      <input type="date" name="vigencia_fim">
+      <div class="dica">Depois do fim da vigência o empenho não recebe mais débito.</div></div>
+    <div class="campo"><label>Número do empenho <span class="opcional">(se já houver)</span></label>
+      <input type="text" name="numero" placeholder="Ex.: 2026NE000812"></div>
+  </div>
+  <p class="pequeno suave">Preencha ao menos um dos números (processo, pregão, registro ou empenho).</p>
+
+  <h3 class="pequeno suave" style="margin:1rem 0 .6rem">Material e saldo</h3>
+  <div class="grade grade-2">
+    <div class="campo"><label class="obrigatorio">Fornecedor</label>
+      <input type="text" name="fornecedor" required></div>
+    <div class="campo"><label class="obrigatorio">Código(s) AGHU</label>
+      <input type="text" name="codigos_aghu" required placeholder="Ex.: 400097 — ou vários: 400097, 400098"
+             data-descritivo-alvo="descritivo-empenho">
+      <div id="descritivo-empenho" hidden></div>
+      <div class="dica">Todo uso de uma unidade com esse código debita o saldo sozinho.
+        Se o empenho cobre várias medidas, coloque os códigos separados por vírgula.</div></div>
+    <div class="campo"><label>Material <span class="opcional">(opcional — vem do catálogo)</span></label>
+      <input type="text" name="material"
+             placeholder="Em branco = descrição HC do primeiro código AGHU"></div>
+    <div class="campo"><label>Data do empenho <span class="opcional">(opcional)</span></label>
+      <input type="date" name="data_empenho"></div>
+    <div class="campo"><label class="obrigatorio">Quantidade licitada (unidades)</label>
+      <input type="number" name="quantidade_total" min="1" required></div>
+    <div class="campo"><label class="obrigatorio">Valor unitário (R$)</label>
+      <input type="text" name="valor_unitario" required placeholder="220,00"></div>
+    <div class="campo"><label>Limite de segurança (unidades) <span class="opcional">(opcional)</span></label>
+      <input type="number" name="limite_seguranca" min="0" placeholder="Em branco = 20% da quantidade">
+      <div class="dica">Quando o saldo chegar a este número, o sistema avisa para providenciar novo empenho.</div></div>
+  </div>
+  <div class="campo"><label>Observação <span class="opcional">(opcional)</span></label>
+    <input type="text" name="observacao"></div>
+  <button class="botao">Cadastrar</button>
+</form>
+{% endblock %}

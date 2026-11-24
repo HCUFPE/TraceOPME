@@ -1,0 +1,13 @@
+<h2>Solicitado até agora</h2>
+  {% include "_solicitacao_painel.html" %}
+  {% if pode_editar and sol.existe %}
+  <details style="margin-top:.8rem"><summary class="pequeno" style="cursor:pointer">Tirar um item da solicitação</summary>
+    <ul style="margin:.5rem 0 0 1rem">
+      {% for l in sol.linhas %}
+      <li class="pequeno">{{ l.quantidade }}x {{ l.descricao }}{% if l.especificacao %} ({{ l.especificacao }}){% endif %}
+        <form method="post" action="/sala-procedimento/atendimento/{{ atendimento.id_atendimento }}/solicitacao/remover/{{ l.id_item }}" style="display:inline">
+          <button class="botao secundario pequeno">tirar</button></form></li>
+      {% endfor %}
+    </ul>
+  </details>
+  {% endif %}

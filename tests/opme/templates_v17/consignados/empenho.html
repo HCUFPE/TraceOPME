@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block titulo %}Empenho {{ empenho.identificacao }} · {{ APP_TITLE }}{% endblock %}
+
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <div>
+    <h1>Empenho {{ empenho.identificacao }}</h1>
+    <p>{{ empenho.fornecedor }} · {{ empenho.material }} · AGHU
+       <strong class="mono">{{ empenho.codigos_aghu|join(', ') or '—' }}</strong></p>
+  </div>
+  <div class="acoes"><a class="botao secundario" href="/consignados/empenhos">Voltar</a></div>
+</div>
+
+{% if empenho.no_limite %}
+<div class="aviso erro" style="margin-bottom:1rem">
+  <strong>{{ 'Empenho SEM SALDO.' if empenho.saldo == 0 else 'Limite de segurança atingido.' }}</strong>
+  Restam {{ empenho.saldo }} de {{ empenho.quantidade_total }} unidade(s) (limite: {{ empenho.limite }}).
+  Providencie novo empenho{{ '' if empenho.saldo == 0 else ' antes que o saldo acabe' }}.
+</div>
+{% endif %}
+
+<div class="grade grade-4" style="margin-bottom:1.5rem">
+  <div class="cartao"><div class="numero">{{ empenho.quantidade_total }}</div><div class="rotulo">unidades no empenho</div></div>
+  <div class="cartao"><div class="numero">{{ empenho.utilizados }}</div><div class="rotulo">vinculadas / utilizadas</div></div>
+  <div class="cartao"><div class="numero">{{ empenho.saldo }}</div><div class="rotulo">saldo disponível</div></div>
+  <div class="cartao"><div class="numero">{{ empenho.valor_saldo|moeda }}</div><div class="rotulo">valor do saldo</div></div>
+</div>
+
+<div class="cartao">
+  <h2>Dados do empenho</h2>
+  <div class="grade grade-2">
+    <p><strong>Número do empenho:</strong> {{ empenho.numero or '—' }}</p>
+    <p><strong>Data:</strong> {{ empenho.data_empenho|data_br or '—' }}</p>
+    <p><strong>Vigência:</strong> {{ empenho.vigencia_inicio|data_br or '—' }} a {{ empenho.vigencia_fim|data_br or '—' }}
+      {% if empenho.vigencia == 'vencida' %}<span class="etiqueta vermelho">vencida — não recebe débito</span>
+      {% elif empenho.vigencia == 'futura' %}<span class="etiqueta cinza">ainda não vigente</span>{% endif %}</p>
+    <p><strong>Nº do processo:</strong> {{ empenho.numero_processo or '—' }}</p>
+    <p><strong>Nº do pregão:</strong> {{ empenho.numero_pregao or '—' }}</p>
+    <p><strong>Nº do registro de licitação:</strong> {{ empenho.numero_registro or '—' }}</p>
+    <p><strong>Quantidade licitada:</strong> {{ empenho.quantidade_total }} unidade(s)</p>
+    <p><strong>Valor unitário:</strong> {{ empenho.valor_unitario|moeda }}</p>
+    <p><strong>Valor total:</strong> {{ empenho.valor_total|moeda }}</p>
+    <p><strong>Limite de segurança:</strong> {{ empenho.limite }} unidade(s)</p>
+    <p><strong>Débito automático:</strong> cada uso de AGHU {{ empenho.codigos_aghu|join(', ') or '—' }}</p>
+    <p><strong>Situação:</strong>
+      <span class="etiqueta {{ 'verde' if empenho.status == 'ativo' else 'cinza' }}">{{ empenho.status|title }}</span>
+    </p>
+  </div>
+  {% if empenho.observacao %}<p class="suave pequeno">{{ empenho.observacao }}</p>{% endif %}
+
+  {% if empenho.status == 'ativo' %}
+    <form method="post" action="/consignados/empenhos/{{ empenho.id_empenho }}/encerrar"
+          data-confirmar="Encerrar este empenho? Ele deixa de aparecer como opção para novos vínculos.">
+      <div class="campo" style="max-width:420px">
+        <label>Motivo do encerramento <span class="opcional">(opcional)</span></label>
+        <input type="text" name="motivo" placeholder="Ex.: empenho vencido, saldo zerado e não renovado">
+      </div>
+      <button class="botao secundario pequeno">Encerrar empenho</button>
+    </form>
+  {% endif %}
+</div>
+
+<div class="cartao">
+  <div class="entre" style="flex-wrap:wrap;gap:.8rem;align-items:flex-end">
+    <h2 style="margin:0">Materiais vinculados</h2>
+    <form method="get" action="/consignados/empenhos/{{ empenho.id_empenho }}"
+          style="display:flex;gap:.5rem;align-items:flex-end;flex-wrap:wrap">
+      <div class="campo" style="margin:0"><label class="pequeno">De</label>
+        <input type="date" name="inicio" value="{{ inicio }}"></div>
+      <div class="campo" style="margin:0"><label class="pequeno">Até</label>
+        <input type="date" name="fim" value="{{ fim }}"></div>
+      <button class="botao secundario">Filtrar</button>
+      {% if inicio or fim %}<a class="botao secundario" href="/consignados/empenhos/{{ empenho.id_empenho }}">Limpar</a>{% endif %}
+      <a class="botao" href="/consignados/empenhos/{{ empenho.id_empenho }}/pdf?inicio={{ inicio }}&fim={{ fim }}">Baixar PDF</a>
+    </form>
+  </div>
+  <p class="pequeno suave" style="margin:.4rem 0 .8rem">
+    {{ vinculos|length }} material(is) vinculado(s){% if inicio or fim %} de {{ inicio|data_br or 'início' }} a {{ fim|data_br or 'hoje' }}{% endif %}.
+    A data é a do uso no paciente (débito no empenho).</p>
+  {% if vinculos %}
+    <div class="tabela-rolagem">
+      <table>
+        <thead><tr><th>Produto (descrição AGHU)</th><th>Lote</th><th>Validade</th><th>Nº série</th><th>Prontuário</th><th>Paciente</th>
+                   <th>Especialidade</th><th>Unidade</th><th>Quando</th><th></th></tr></thead>
+        <tbody>
+          {% for v in vinculos %}
+            <tr>
+              <td>{{ v.descricao_aghu }}<br><span class="suave pequeno mono">AGHU {{ v.codigo_aghu or '—' }}</span></td>
+              <td class="mono">{{ v.nLote or '—' }}</td>
+              <td>{{ v.dVal|data_br or '—' }}</td>
+              <td class="mono">{{ v.numero_serie or '—' }}</td>
+              <td>{{ v.prontuario or '—' }}</td>
+              <td>{{ v.paciente or '—' }}{% if v.sala %}<br><span class="suave pequeno">sala {{ v.sala }}</span>{% endif %}</td>
+              <td class="pequeno">{{ v.especialidade or '—' }}</td>
+              <td class="pequeno">{{ v.unidade_rotulo }}</td>
+              <td class="pequeno">{{ v.data_vinculo|data_hora_br }}</td>
+              <td>
+                {% if v.status == 'ativo' %}
+                  <form method="post" action="/consignados/vinculo/{{ v.id_vinculo }}/cancelar"
+                        data-confirmar="Cancelar este vínculo? O saldo do empenho volta."
+                        style="display:flex;gap:.3rem">
+                    <input type="text" name="motivo" placeholder="motivo" required
+                           style="width:140px">
+                    <button class="botao pequeno secundario">Cancelar</button>
+                  </form>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="vazio">{{ 'Nenhum material vinculado neste período.' if inicio or fim else 'Nenhum material vinculado a este empenho ainda.' }}</p>
+  {% endif %}
+</div>
+{% endblock %}

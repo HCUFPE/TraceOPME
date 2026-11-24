@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+{% import "indicadores/_componentes.html" as ui with context %}
+{% block titulo %}Fluxo e gargalos · {{ APP_TITLE }}{% endblock %}
+
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <div>
+    <h1>Fluxo e gargalos</h1>
+    <p>Onde o processo trava e quanto tempo cada etapa leva, de {{ inicio|data_br }} a {{ fim|data_br }}.</p>
+  </div>
+</div>
+
+{{ ui.abas('fluxo', inicio, fim) }}
+{{ ui.filtro_periodo('/indicadores/fluxo', inicio, fim) }}
+
+<div class="grade-kpi">
+  {% for item in indicadores %}{{ ui.cartao(item) }}{% endfor %}
+</div>
+
+<div class="cartao" id="cancelamentos">
+  <h2>Cancelamento de procedimentos</h2>
+  <p class="suave pequeno">
+    Procedimentos previstos com OPME no período que não aconteceram e foram cancelados na Sala
+    com motivo. {{ cancelamentos.cancelados }} de {{ cancelamentos.previstos }} previstos
+    {% if cancelamentos.taxa is not none %}— <strong>{{ ('%.1f'|format(cancelamentos.taxa))|replace('.', ',') }}%</strong>{% endif %}.
+  </p>
+  {% if cancelamentos.por_motivo %}
+    <div class="grade grade-2">
+      <div>
+        <h3>Por motivo</h3>
+        {{ ui.barras(cancelamentos.por_motivo, 'motivo', 'quantidade', cor='vermelho') }}
+      </div>
+      <div>
+        <h3>Por unidade e especialidade</h3>
+        <div class="tabela-rolagem">
+          <table>
+            <thead><tr><th>Unidade</th><th>Especialidade</th><th class="num">Previstos</th>
+                       <th class="num">Cancelados</th><th class="num">Taxa</th></tr></thead>
+            <tbody>
+              {% for g in cancelamentos.por_grupo %}
+                <tr><td>{{ g.rotulo_unidade }}</td><td>{{ g.especialidade|especialidade }}</td>
+                    <td class="num">{{ g.previstos }}</td><td class="num">{{ g.cancelados }}</td>
+                    <td class="num">{{ ('%.1f'|format(g.taxa))|replace('.', ',') }}%</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <details style="margin-top:1rem">
+      <summary style="cursor:pointer"><strong>Ver os {{ cancelamentos.lista|length }} cancelamento(s)</strong></summary>
+      <div class="tabela-rolagem" style="margin-top:.6rem">
+        <table>
+          <thead><tr><th>Data</th><th>Local</th><th>Prontuário</th><th>Especialidade</th>
+                     <th>Motivo</th><th>Cancelado por</th></tr></thead>
+          <tbody>
+            {% for c in cancelamentos.lista %}
+              <tr><td>{{ c.data_procedimento|data_br }}</td>
+                  <td class="pequeno">{{ c.rotulo_unidade }} — sala {{ c.sala }}</td>
+                  <td><a href="/sala-procedimento/atendimento/{{ c.id_atendimento }}">{{ c.prontuario }}</a></td>
+                  <td>{{ c.especialidade|especialidade }}</td>
+                  <td>{{ c.motivo_cancelamento }}{% if c.detalhe_cancelamento %}<br><span class="suave pequeno">{{ c.detalhe_cancelamento }}</span>{% endif %}</td>
+                  <td class="pequeno">{{ c.cancelado_por }}<br>{{ c.cancelado_em|data_hora_br }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </details>
+  {% else %}
+    <p class="vazio">Nenhum procedimento cancelado no período.</p>
+  {% endif %}
+</div>
+
+<div class="cartao">
+  <h2>Tempo de cada etapa</h2>
+  <p class="suave pequeno">
+    Medido de verdade, a partir dos eventos gravados. A coluna “90% até” mostra o tempo dentro do
+    qual 9 em cada 10 itens foram atendidos — é mais útil que a média para achar o gargalo real.
+  </p>
+  <div class="tabela-rolagem">
+    <table>
+      <thead>
+        <tr><th>Etapa</th><th class="num">Itens</th><th class="num">Média</th>
+            <th class="num">Mediana</th><th class="num">90% até</th>
+            <th class="num">Pior caso</th><th class="num">Meta</th><th>Situação</th></tr>
+      </thead>
+      <tbody>
+        {% for e in etapas %}
+          <tr>
+            <td>{{ e.etapa }}</td>
+            <td class="num">{{ e.quantidade }}</td>
+            <td class="num"><strong>{{ ('%.1f'|format(e.media))|replace('.', ',') if e.media is not none else '—' }}</strong>{{ ' h' if e.media is not none }}</td>
+            <td class="num">{{ ('%.1f'|format(e.mediana))|replace('.', ',') if e.mediana is not none else '—' }}</td>
+            <td class="num">{{ ('%.1f'|format(e.p90))|replace('.', ',') if e.p90 is not none else '—' }}</td>
+            <td class="num">{{ ('%.1f'|format(e.maximo))|replace('.', ',') if e.maximo is not none else '—' }}</td>
+            <td class="num pequeno">{{ e.meta if e.meta is not none else '—' }}</td>
+            <td>
+              {% if e.situacao == 'verde' %}<span class="etiqueta verde">na meta</span>
+              {% elif e.situacao == 'amarelo' %}<span class="etiqueta amarelo">atenção</span>
+              {% elif e.situacao == 'vermelho' %}<span class="etiqueta vermelho">fora da meta</span>
+              {% else %}<span class="etiqueta cinza">—</span>{% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if etapas | selectattr('media') | list %}
+    <h3 style="margin-top:1.25rem">Comparação visual (horas médias)</h3>
+    {{ ui.barras(etapas | selectattr('media') | list, 'etapa', 'media', cor='azul') }}
+  {% endif %}
+</div>
+
+<div class="grade grade-2">
+  <div class="cartao">
+    <h2>Fila de trabalho agora</h2>
+    <p class="suave pequeno">Itens esperando alguma ação neste momento, por situação.</p>
+    {% if gargalos %}
+      <div class="tabela-rolagem">
+        <table>
+          <thead><tr><th>Situação</th><th class="num">Itens</th>
+                     <th class="num">Parados há (média)</th><th class="num">Pior caso</th></tr></thead>
+          <tbody>
+            {% for g in gargalos %}
+              <tr>
+                <td><span class="etiqueta {{ cor_status(g.status) }}">{{ rotulo_status(g.status) }}</span></td>
+                <td class="num"><strong>{{ g.quantidade }}</strong></td>
+                <td class="num">{{ g.dias_medio }} dia(s)</td>
+                <td class="num">
+                  {% if g.pior_caso and g.pior_caso > 2 %}
+                    <span class="etiqueta vermelho">{{ g.pior_caso }} dia(s)</span>
+                  {% else %}{{ g.pior_caso or 0 }} dia(s){% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="vazio">Nenhum item pendente. Fluxo limpo.</p>
+    {% endif %}
+  </div>
+
+  <div class="cartao">
+    <h2>Movimentações por usuário</h2>
+    <p class="suave pequeno">Serve para dimensionar equipe, não para comparar pessoas.</p>
+    {% if produtividade %}
+      <div class="tabela-rolagem">
+        <table>
+          <thead><tr><th>Usuário</th><th class="num">Movimentos</th>
+                     <th class="num">Dias ativos</th><th class="num">Média/dia</th></tr></thead>
+          <tbody>
+            {% for p in produtividade %}
+              <tr>
+                <td class="mono">{{ p.usuario }}</td>
+                <td class="num">{{ p.movimentos }}</td>
+                <td class="num">{{ p.dias_ativos }}</td>
+                <td class="num">{{ p.media_dia }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="vazio">Nenhuma movimentação no período.</p>
+    {% endif %}
+  </div>
+</div>
+
+<div class="cartao">
+  <h2>Itens parados há mais de 2 dias</h2>
+  <p class="suave pequeno">Cada linha é uma conferência que ficou para trás.</p>
+  {% if parados %}
+    <div class="tabela-rolagem">
+      <table>
+        <thead><tr><th>Item</th><th>Situação</th><th>Prontuário</th>
+                   <th class="num">Parado há</th><th></th></tr></thead>
+        <tbody>
+          {% for p in parados %}
+            <tr>
+              <td>{{ p.xProd }} <span class="suave pequeno">lote {{ p.nLote or '—' }}</span></td>
+              <td><span class="etiqueta {{ cor_status(p.status) }}">{{ rotulo_status(p.status) }}</span></td>
+              <td>{{ p.prontuario or '—' }}</td>
+              <td class="num"><span class="etiqueta vermelho">{{ p.dias_parado }} dia(s)</span></td>
+              <td><a class="pequeno" href="/consultas/item/{{ p.id_unidade }}">abrir</a></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="vazio">Nenhum item parado. Todas as conferências estão em dia.</p>
+  {% endif %}
+</div>
+{% endblock %}

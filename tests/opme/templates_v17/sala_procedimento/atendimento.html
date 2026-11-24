@@ -1,0 +1,243 @@
+{% extends "base.html" %}
+{% block titulo %}Atendimento {{ atendimento.prontuario }} · {{ APP_TITLE }}{% endblock %}
+
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <div>
+    <h1>Prontuário {{ atendimento.prontuario }}</h1>
+    <p>{{ descricao.replace('Prontuário ' ~ atendimento.prontuario ~ ' · ', '') }}{% if atendimento.paciente %} · {{ atendimento.paciente }}{% endif %}</p>
+  </div>
+  <div class="acoes"><a class="botao secundario" href="/sala-procedimento/atendimentos?data={{ atendimento.data_procedimento }}">Voltar</a></div>
+</div>
+
+<div class="trilha">
+  <div class="etapa {{ 'destaque' if resumo.utilizados }}"><strong>{{ resumo.utilizados }}</strong> utilizados neste paciente</div>
+  <div class="etapa"><strong>{{ resumo.devolvidos }}</strong> devolvidos sem uso à farmácia</div>
+  {% if resumo.devolucao_aguardando %}
+  <div class="etapa destaque"><strong>{{ resumo.devolucao_aguardando }}</strong> bipado(s) na devolução —
+    aguardando a ciência da farmácia</div>
+  {% endif %}
+</div>
+
+<div class="cartao" id="solicitacao">
+  <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:.5rem">
+    <h2 style="margin:0;flex:1 1 auto">Solicitação de OPME à farmácia</h2>
+    {% if atendimento.status == 'aberto' and not finalizado %}
+    <a class="botao {{ 'secundario' if solicitacao.existe else '' }}" href="/sala-procedimento/atendimento/{{ atendimento.id_atendimento }}/solicitacao">{{ 'Alterar solicitação' if solicitacao.existe else 'Solicitar material' }}</a>
+    {% endif %}
+  </div>
+  {% set sol = solicitacao %}{% set modo = 'sala' %}
+  {% include "_solicitacao_painel.html" %}
+</div>
+
+<div class="cartao">
+  <h2>Próximas ações</h2>
+  <div class="linha-botoes">
+    {% if atendimento.status == 'aberto' and (not finalizado or pendencias.total) %}
+      <a class="botao" href="/bipagem/registrar_uso?atendimento={{ atendimento.id_atendimento }}">Registrar uso</a>
+    {% endif %}
+    <a class="botao secundario" href="/consultas/prontuario?numero={{ atendimento.prontuario }}">Ficha do paciente</a>
+    <a class="botao secundario" href="/consultas/eventos?prontuario={{ atendimento.prontuario }}&tipo=uso_devolucao&inicio={{ atendimento.data_procedimento }}">Histórico de movimentações</a>
+    {% if resumo.utilizados %}
+      <a class="botao secundario" href="/sala-procedimento/estorno?atendimento={{ atendimento.id_atendimento }}">Estornar um uso</a>
+    {% endif %}
+  </div>
+
+  {% if atendimento.opme_solicitado %}
+    <p class="pequeno" style="margin-top:1rem"><strong>OPME solicitado:</strong></p>
+    <div class="pequeno mono" style="white-space:pre-wrap">{{ atendimento.opme_solicitado }}</div>
+  {% endif %}
+
+  {% if atendimento.status == 'aberto' and not resumo.utilizados and not atendimento.uso_finalizado_em %}
+    {% set cancelar_acao = "/sala-procedimento/atendimento/" ~ atendimento.id_atendimento ~ "/cancelar" %}
+    {% set cancelar_dispensados = resumo.transito_sala + resumo.na_sala %}
+    {% include "_cancelar_procedimento.html" %}
+  {% endif %}
+
+  {% if atendimento.status == 'cancelado' %}
+    <div class="aviso erro" style="margin-top:1rem">
+      <strong>Procedimento cancelado</strong> em {{ atendimento.cancelado_em|data_hora_br }} por
+      {{ atendimento.cancelado_por }} — motivo: <strong>{{ atendimento.motivo_cancelamento }}</strong>
+      {% if atendimento.detalhe_cancelamento %}({{ atendimento.detalhe_cancelamento }}){% endif %}.
+    </div>
+  {% endif %}
+
+  {% if atendimento.status == 'aberto' and finalizado %}
+    <div class="aviso {{ 'erro' if pendencias.total else 'info' }}" style="margin-top:1rem">
+      <strong>Materiais utilizados finalizados</strong> em {{ atendimento.uso_finalizado_em|data_hora_br }}
+      por {{ atendimento.uso_finalizado_por }}.
+      {% if lista_na_farmacia %}
+        A lista de não utilizados está com a farmácia, para conferir e dar ciência. Ela encerra o procedimento.
+      {% elif pendencias.total %}
+        <br><strong>A farmácia não recebeu de volta {{ pendencias.total }} item(ns).</strong> Confira:
+        se foi usado no paciente, <a href="/bipagem/registrar_uso?atendimento={{ atendimento.id_atendimento }}">bipe aqui no prontuário</a>;
+        se está na sala, leve à farmácia. Quem conclui é a farmácia.
+        <ul style="margin:.4rem 0 0 1.1rem">
+          {% for i in pendencias.itens %}<li><span class="mono">AGHU {{ i.codigo_aghu or '—' }}</span> · {{ i.descritivo_hospital or i.xProd }} · lote {{ i.nLote or '—' }} · val. {{ i.dVal|data_br or '—' }}</li>{% endfor %}
+          {% for c in pendencias.caixas %}<li>Caixa <span class="mono">{{ c.id_caixa }}</span> {{ c.nome }} — {{ c.qtd }} item(ns)</li>{% endfor %}
+        </ul>
+      {% else %}
+        Aguardando a farmácia concluir.
+      {% endif %}
+    </div>
+  {% elif atendimento.status == 'aberto' %}
+    <p style="margin-top:1rem">
+      <a class="botao" href="/sala-procedimento/atendimento/{{ atendimento.id_atendimento }}/concluir">
+        Finalizar materiais utilizados</a>
+      <span class="suave pequeno">Revise o que foi usado, exclua algum bip se precisar e finalize. Os não
+        utilizados vão sozinhos para a farmácia.</span>
+    </p>
+  {% else %}
+    {% if atendimento.status == 'encerrado' %}
+    <p class="aviso sucesso" style="margin-top:1rem">
+      Atendimento encerrado em {{ atendimento.encerrado_em|data_hora_br }} por {{ atendimento.encerrado_por }}.
+    </p>
+    {% endif %}
+    <details class="cartao" style="margin-top:.5rem;border-left:5px solid var(--amarelo, #b58100)">
+      <summary style="cursor:pointer"><strong>{{ 'Cancelado por engano?' if atendimento.status == 'cancelado' else 'Esqueceu algum material?' }} Reabrir com a supervisão</strong></summary>
+      <form method="post" action="/sala-procedimento/atendimento/{{ atendimento.id_atendimento }}/reabrir"
+            style="margin-top:1rem" autocomplete="off">
+        <p class="suave pequeno">A supervisora digita o próprio usuário e senha aqui. Fica registrado quem autorizou e por quê.</p>
+        <div class="grade grade-3">
+          <div class="campo"><label class="obrigatorio">Usuário da supervisora</label>
+            <input type="text" name="usuario_supervisao" required autocomplete="off"></div>
+          <div class="campo"><label class="obrigatorio">Senha</label>
+            <input type="password" name="senha_supervisao" required autocomplete="new-password"></div>
+          <div class="campo"><label class="obrigatorio">Motivo</label>
+            <input type="text" name="motivo" required placeholder="Ex.: material esquecido na bipagem"></div>
+        </div>
+        <button class="botao">Reabrir atendimento</button>
+      </form>
+    </details>
+  {% endif %}
+
+  {% if historico_encerramento %}
+    <div class="pequeno suave" style="margin-top:.8rem">
+      {% for h in historico_encerramento %}
+        {{ h.data_evento|data_hora_br }} — {{ {'atendimento_encerrado': 'encerrado', 'atendimento_reaberto': 'reaberto', 'atendimento_cancelado': 'cancelado'}[h.tipo] }}
+        por {{ h.usuario }}{% if h.motivo %} (motivo: {{ h.motivo }}){% endif %}<br>
+      {% endfor %}
+    </div>
+  {% endif %}
+</div>
+
+{% if entregas %}
+<div class="cartao alerta-entrega-cartao">
+  <h2>Caixa a entregar ao paciente</h2>
+  {% for e in entregas %}
+    <p style="margin:.3rem 0"><strong>{{ e.descritivo_hospital or e.xProd }}</strong> (AGHU {{ e.codigo_aghu }}, lote {{ e.nLote or '—' }}) —
+      {% if e.ciencia_por %}<span class="etiqueta verde">ciente: {{ e.ciencia_por }}, {{ e.ciencia_em|data_hora_br }}</span>
+      {% else %}<span class="etiqueta vermelho">sem ciência</span>{% endif %}</p>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if dispensados %}
+{% set aguardando = dispensados|selectattr('situacao', 'equalto', 'pendente')|list %}
+<div class="cartao" {% if aguardando %}style="border-left:5px solid var(--amarelo, #d97706)"{% endif %}>
+  <div class="entre" style="flex-wrap:wrap;gap:.6rem">
+    <h2 style="margin:0">Dispensado pela farmácia ({{ dispensados|length }})</h2>
+    {% if aguardando %}
+      <a class="botao" href="/dispensacoes/atendimento/{{ atendimento.id_atendimento }}">Confirmar recebimento ({{ aguardando|length }}) com a senha</a>
+    {% endif %}
+  </div>
+  <div class="tabela-rolagem" style="margin-top:.6rem">
+    <table>
+      <thead><tr><th>Produto</th><th>AGHU</th><th>Lote</th><th>Caixa</th><th>Dispensado</th><th>Recebido na sala</th><th>Situação agora</th></tr></thead>
+      <tbody>
+        {% for d in dispensados %}
+          <tr>
+            <td>{{ d.descritivo_hospital or d.xProd }}</td>
+            <td class="mono pequeno">{{ d.codigo_aghu or '—' }}</td>
+            <td class="mono">{{ d.nLote or '—' }}</td>
+            <td class="mono pequeno">{{ d.id_caixa or '—' }}</td>
+            <td class="pequeno">{{ d.bipado_em|data_hora_br }}<br><span class="suave">{{ d.bipado_por }}</span></td>
+            {% set voltou = atendimento.status == 'cancelado' and d.atendimento_atual != atendimento.id_atendimento %}
+            <td class="pequeno">{% if d.situacao == 'recebido' %}<span class="etiqueta verde">{{ d.recebido_por }}</span>
+                {% elif d.situacao == 'cancelado' %}<span class="etiqueta cinza">não foi para a sala</span>
+                {% else %}<span class="etiqueta amarelo">aguardando a confirmação</span>{% endif %}</td>
+            <td class="pequeno">{% if voltou %}<span class="etiqueta azul">voltou ao estoque da farmácia</span>
+                <br><span class="suave">procedimento cancelado</span>
+                {% else %}{{ rotulo_status(d.status_unidade) }}{% endif %}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% if devolvidos %}
+<div class="cartao">
+  <h2>Devolvidos sem uso à farmácia ({{ devolvidos|length }})</h2>
+  <div class="tabela-rolagem">
+    <table>
+      <thead><tr><th>Produto</th><th>AGHU</th><th>Lote</th><th>Devolvido em</th><th>Devolvido por (sala)</th><th>Recebido por (farmácia)</th></tr></thead>
+      <tbody>
+        {% for d in devolvidos %}
+          <tr>
+            <td>{{ d.descritivo_hospital or d.xProd }}</td>
+            <td class="mono pequeno">{{ d.codigo_aghu or '—' }}</td>
+            <td class="mono">{{ d.nLote or '—' }}</td>
+            <td class="pequeno">{{ d.data_evento|data_hora_br }}</td>
+            <td class="pequeno"><span class="etiqueta azul">{{ d.devolvido_por or d.bipado_por or '—' }}</span>{% if d.bipado_por and d.devolvido_por and d.devolvido_por != d.bipado_por %}<br><span class="suave">login {{ d.bipado_por }}</span>{% endif %}</td>
+            <td class="pequeno">{% if d.recebido_por %}<span class="etiqueta verde">{{ d.recebido_por }}</span>{% else %}—{% endif %}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<div class="cartao">
+  <h2>Materiais utilizados</h2>
+  {% if materiais %}
+    <div class="tabela-rolagem">
+      <table>
+        <thead><tr><th>Produto</th><th>AGHU</th><th>Lote</th><th>Validade</th><th>Nº série</th><th>Situação</th><th>Registrado em</th><th></th></tr></thead>
+        <tbody>
+          {% for m in materiais %}
+            <tr>
+              <td>{{ m.xProd }}<br><span class="suave pequeno">{{ m.fornecedor or '' }}</span></td>
+              <td class="mono pequeno">{{ m.codigo_aghu or '—' }}</td>
+              <td class="mono">{{ m.nLote or '—' }}</td>
+              <td>{{ m.dVal|data_br or '—' }}</td>
+              <td class="mono pequeno">{{ m.numero_serie or '—' }}</td>
+              <td><span class="etiqueta {{ cor_status(m.status) }}">{{ rotulo_status(m.status) }}</span></td>
+              <td class="pequeno">{{ m.ultimo_movimento|data_hora_br }}</td>
+              <td><a class="pequeno" href="/consultas/item/{{ m.id_unidade }}">histórico</a></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="vazio">Nenhum material registrado neste atendimento ainda.</p>
+  {% endif %}
+</div>
+
+<details class="cartao">
+  <summary style="cursor:pointer"><strong>Corrigir dados do atendimento</strong></summary>
+  <form method="post" style="margin-top:1rem">
+    <div class="grade grade-2">
+      <div class="campo"><label>Prontuário</label><input type="text" name="prontuario" value="{{ atendimento.prontuario }}"></div>
+      <div class="campo"><label>Paciente</label><input type="text" name="paciente" value="{{ atendimento.paciente or '' }}"></div>
+      <div class="campo">
+        <label>Local</label>
+        <select name="local">
+          {% for chave, sala_opcao, rotulo in locais %}
+            <option value="{{ chave }}|{{ sala_opcao }}"
+              {{ 'selected' if chave == atendimento.unidade and sala_opcao == atendimento.sala }}>
+              {{ rotulo }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="campo"><label>Observação</label><input type="text" name="observacao" value="{{ atendimento.observacao or '' }}"></div>
+    </div>
+    <p class="suave pequeno">Prontuário e sala ficam bloqueados depois que houver material registrado como utilizado.</p>
+    <button class="botao secundario">Salvar</button>
+  </form>
+</details>
+{% endblock %}

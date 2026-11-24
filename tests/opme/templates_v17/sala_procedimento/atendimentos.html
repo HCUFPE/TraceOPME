@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+{% block titulo %}Atendimentos · {{ APP_TITLE }}{% endblock %}
+
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <div>
+    <h1>Atendimentos</h1>
+    <p>Escolha o paciente para {{ OPERACOES[operacao].titulo|lower if operacao in OPERACOES else 'trabalhar' }}.
+       Se ele não estiver na lista, abra em Procedimentos.</p>
+  </div>
+  <div class="acoes"><a class="botao secundario" href="/sala-procedimento">Voltar</a></div>
+</div>
+
+{% include "sala_procedimento/_unidade.html" %}
+
+{% if disp_pendentes %}
+<div class="cartao" style="border-left:6px solid var(--amarelo, #d97706);background:var(--amarelo-claro, #fff7e6)">
+  <h2 style="margin-top:0">Material dispensado pela farmácia aguardando sua confirmação ({{ disp_pendentes|length }})</h2>
+  <p class="pequeno" style="margin:.2rem 0 .6rem">Enquanto não confirmar com a senha, <strong>aquele prontuário não registra uso</strong> (os outros da sala seguem normalmente).
+    Não crie outro procedimento: confirme o recebimento aqui.</p>
+  <div class="tabela-rolagem"><table>
+    <thead><tr><th>Procedimento</th><th>Local</th><th>Paciente</th><th class="num">Itens</th><th>Dispensado</th><th></th></tr></thead>
+    <tbody>
+      {% for d in disp_pendentes %}
+      <tr>
+        <td><strong>{{ d.prontuario }}</strong><br><span class="suave pequeno">procedimento de {{ d.data_procedimento|data_br }}</span></td>
+        <td class="pequeno">{{ rotulo_unidade(d.unidade) }} — sala {{ d.sala }}</td>
+        <td class="pequeno">{{ d.paciente or '—' }}</td>
+        <td class="num">{{ d.qtd }}</td>
+        <td class="pequeno">{{ d.criado_em|data_hora_br }} · {{ d.criado_por }}</td>
+        <td style="white-space:nowrap">
+          <a class="botao pequeno" href="/dispensacoes/{{ d.id_dispensacao }}">Confirmar recebimento</a>
+          <a class="botao pequeno secundario" href="/sala-procedimento/atendimento/{{ d.id_atendimento }}">Ficha</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table></div>
+</div>
+{% endif %}
+
+{% if nao_recebidos %}
+<div class="cartao" id="nao-recebidos" style="border-left:6px solid var(--vermelho, #b3261e)">
+  <h2 style="margin-top:0">Conferir: a farmácia não recebeu de volta ({{ nao_recebidos|length }})</h2>
+  <p class="pequeno" style="margin:.2rem 0 .6rem">Material da lista de não utilizados que não chegou à farmácia.
+    Se foi usado no paciente, bipe no prontuário; se está na sala, leve à farmácia. Quem conclui é a farmácia.</p>
+  <div class="tabela-rolagem"><table>
+    <thead><tr><th>Procedimento</th><th>Local</th><th>Paciente</th><th class="num">Itens</th><th></th></tr></thead>
+    <tbody>
+      {% for a in nao_recebidos %}
+      <tr>
+        <td><strong>{{ a.prontuario }}</strong><br><span class="suave pequeno">procedimento de {{ a.data_procedimento|data_br }}</span></td>
+        <td class="pequeno">{{ rotulo_unidade(a.unidade) }} — sala {{ a.sala }}</td>
+        <td class="pequeno">{{ a.paciente or '—' }}</td>
+        <td class="num">{{ a.pendentes }}</td>
+        <td style="white-space:nowrap">
+          <a class="botao pequeno" href="/sala-procedimento/atendimento/{{ a.id_atendimento }}">Conferir</a>
+          <a class="botao pequeno secundario" href="/bipagem/registrar_uso?atendimento={{ a.id_atendimento }}">Bipar uso</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table></div>
+</div>
+{% endif %}
+
+{% if a_concluir %}
+<div class="cartao" id="a-concluir" style="border-left:6px solid var(--vermelho, #b3261e)">
+  <h2 style="margin-top:0">Falta finalizar os materiais utilizados ({{ a_concluir|length }})</h2>
+  <p class="pequeno" style="margin:.2rem 0 .6rem">Atendimentos ainda abertos, de qualquer data, que já têm material
+    usado ou dispensado. Revise e clique em “Finalizar materiais utilizados”.</p>
+  <div class="tabela-rolagem"><table>
+    <thead><tr><th>Procedimento</th><th>Local</th><th>Paciente</th><th class="num">Usados</th><th class="num">Dispensados sem uso</th><th></th></tr></thead>
+    <tbody>
+      {% for a in a_concluir %}
+      <tr>
+        <td><strong>{{ a.prontuario }}</strong><br><span class="suave pequeno">procedimento de {{ a.data_procedimento|data_br }}</span></td>
+        <td class="pequeno">{{ rotulo_unidade(a.unidade) }} — sala {{ a.sala }}</td>
+        <td class="pequeno">{{ a.paciente or '—' }}</td>
+        <td class="num">{{ a.usados }}</td>
+        <td class="num">{% if a.dispensados %}<span class="etiqueta amarelo">{{ a.dispensados }}</span>{% else %}0{% endif %}</td>
+        <td style="white-space:nowrap">
+          <a class="botao pequeno" href="/sala-procedimento/atendimento/{{ a.id_atendimento }}/concluir">Finalizar utilizados</a>
+          <a class="botao pequeno secundario" href="/bipagem/registrar_uso?atendimento={{ a.id_atendimento }}">Registrar uso</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table></div>
+</div>
+{% endif %}
+
+<form method="get" class="cartao">
+  <div class="filtros">
+    <div class="campo"><label>Data do procedimento</label><input type="date" name="data" value="{{ data }}"></div>
+    <div class="campo">
+      <label>Unidade</label>
+      <select name="unidade">
+        <option value="">todas</option>
+        {% for chave, dados in unidades.items() %}
+          <option value="{{ chave }}" {{ 'selected' if unidade == chave }}>{{ dados.rotulo }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="campo"><label>Sala</label>
+      <input type="text" name="sala" value="{{ sala }}" placeholder="ex.: 03" style="width:90px"></div>
+    <div class="campo">
+      <label>Turno</label>
+      <select name="turno">
+        <option value="">todos</option>
+        {% for chave, dados in turnos.items() %}
+          <option value="{{ chave }}" {{ 'selected' if turno == chave }}>
+            {{ dados[0] }} ({{ dados[1] }}–{{ dados[2] }})
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="campo"><label>Prontuário ou paciente</label>
+      <input type="text" name="prontuario" value="{{ prontuario }}"></div>
+    <div class="campo">
+      <label>Mostrar</label>
+      <select name="so_opme">
+        <option value="1" {{ 'selected' if so_opme }}>só com OPME solicitado</option>
+        <option value="0" {{ 'selected' if not so_opme }}>todas as cirurgias</option>
+      </select>
+    </div>
+    <input type="hidden" name="operacao" value="{{ operacao }}">
+    <button class="botao">Filtrar</button>
+  </div>
+  <p class="suave pequeno" style="margin:.6rem 0 0">
+    O filtro “só com OPME solicitado” nunca esconde atendimento cadastrado à mão nem os que
+    já têm material registrado.
+  </p>
+</form>
+
+<div class="cartao">
+  <h2>{{ data|data_br }} — {{ atendimentos|length }} atendimento(s)</h2>
+  {% if atendimentos %}
+    <div class="tabela-rolagem">
+      <table>
+        <thead>
+          <tr><th>Hora</th><th>Local</th><th>Prontuário</th><th>Especialidade</th>
+              <th>OPME pedido</th><th class="num">Usados</th><th></th></tr>
+        </thead>
+        <tbody>
+          {% for a in atendimentos %}
+            <tr>
+              <td class="pequeno">{{ a.hora_inicio or '—' }}</td>
+              <td class="pequeno">
+                <strong>Sala {{ a.sala }}</strong><br>
+                <span class="etiqueta {{ cor_unidade(a.unidade) }}">{{ rotulo_unidade(a.unidade) }}</span>
+                {% if a.conflito %}
+                  <br><span class="etiqueta vermelho" title="Há outro atendimento nesta mesma sala e horário — confira o prontuário antes de bipar.">
+                    ⚠ mesma sala e hora
+                  </span>
+                {% endif %}
+              </td>
+              <td><strong>{{ a.prontuario }}</strong><br>
+                  <span class="suave pequeno">{{ a.paciente or '' }}</span>
+                  {% if a.origem == 'manual' %}<br><span class="etiqueta cinza pequeno">cadastrado à mão</span>{% endif %}
+                  {% if a.status == 'encerrado' %}<br><span class="etiqueta cinza pequeno">encerrado</span>{% endif %}
+                  {% if a.qtd_transito %}<br><span class="etiqueta amarelo pequeno">dispensado — aguardando confirmação ({{ a.qtd_transito }})</span>{% endif %}
+                  {% if a.qtd_na_sala %}<br><span class="etiqueta verde pequeno">{{ a.qtd_na_sala }} recebido(s) da farmácia</span>{% endif %}
+                  {% if a.status == 'cancelado' %}<br><span class="etiqueta vermelho pequeno" title="{{ a.detalhe_cancelamento or '' }}">cancelado — {{ a.motivo_cancelamento }}</span>{% endif %}</td>
+              <td>{{ a.especialidade|especialidade }}</td>
+              <td>
+                {% if a.opme_solicitado %}
+                  <details>
+                    <summary class="pequeno" style="cursor:pointer;color:var(--azul)">ver pedido</summary>
+                    <div class="pequeno mono" style="white-space:pre-wrap;max-width:420px;margin-top:.3rem">{{ a.opme_solicitado }}</div>
+                  </details>
+                {% else %}<span class="suave pequeno">—</span>{% endif %}
+              </td>
+              <td class="num">{{ a.qtd_utilizados or 0 }}</td>
+              <td style="white-space:nowrap">
+                {% if a.qtd_transito %}
+                  <a class="botao pequeno" href="/dispensacoes/atendimento/{{ a.id_atendimento }}">Confirmar recebimento</a>
+                {% endif %}
+                {% if operacao in OPERACOES and (a.status == 'aberto' or operacao == 'devolver_nao_utilizado') %}
+                  <a class="botao pequeno" href="/bipagem/{{ operacao }}?atendimento={{ a.id_atendimento }}">
+                    {{ OPERACOES[operacao].titulo }}
+                  </a>
+                {% endif %}
+                {% if a.status == 'aberto' and not a.uso_finalizado_em %}
+                  <a class="botao pequeno secundario" href="/sala-procedimento/atendimento/{{ a.id_atendimento }}/solicitacao">Solicitar OPME</a>
+                {% endif %}
+                <a class="botao pequeno secundario" href="/sala-procedimento/atendimento/{{ a.id_atendimento }}">Abrir</a>
+                {% if a.status == 'aberto' and not a.qtd_utilizados and not a.uso_finalizado_em %}
+                  <a class="botao pequeno secundario" href="/sala-procedimento/atendimento/{{ a.id_atendimento }}#cancelar" title="Procedimento cancelado: o material dispensado volta direto para a farmácia">Cancelado</a>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="vazio">Nenhum atendimento nesta data com os filtros atuais.
+      Abra em Procedimentos ou importe a agenda lá.</p>
+  {% endif %}
+</div>
+
+<div class="cartao" id="novo-atendimento">
+  <p style="margin:0">O paciente não está na lista? Abra o procedimento em
+    <a href="/procedimentos#novo"><strong>Procedimentos → Abrir procedimento</strong></a>
+    (agora é geral: a farmácia também abre, para dispensar o OPME).</p>
+</div>
+{% endblock %}

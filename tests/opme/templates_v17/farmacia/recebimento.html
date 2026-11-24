@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% block titulo %}Conferir envio {{ rem.id_remessa }} · {{ APP_TITLE }}{% endblock %}
+
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <div>
+    <h1>{{ 'Ciência do envio registrada' if rem.status == 'conferida' else 'Envio do almoxarifado — conferir e dar ciência' }}</h1>
+    <p><strong>{{ rem.farmacia_rotulo }}</strong> · <span class="mono">{{ rem.id_remessa }}</span> · enviado por
+      {{ rem.enviada_por or rem.criado_por }} em {{ (rem.enviada_em or rem.criado_em)|data_hora_br }}
+      {% if rem.observacao %} · {{ rem.observacao }}{% endif %}
+      {% if rem.status == 'conferida' %} · ciência de <span class="etiqueta verde">{{ rem.conferida_nome }}</span> em {{ rem.conferida_em|data_hora_br }}{% endif %}</p>
+  </div>
+  <div class="acoes"><a class="botao secundario" href="/farmacia/recebimentos">Voltar</a></div>
+</div>
+
+{% if rem.status == 'aberta' %}
+  <div class="aviso info">O almoxarifado ainda está montando este envio.</div>
+{% elif rem.status == 'enviada' and rem.pendentes %}
+<form method="post" action="/farmacia/recebimento/{{ rem.id_remessa }}/conferir" class="cartao" id="form-receb"
+      data-identificar="/farmacia/recebimento/{{ rem.id_remessa }}/identificar">
+  <h2>1. Confira o material ({{ rem.pendentes|length }})</h2>
+  <div style="display:flex;gap:1.2rem;flex-wrap:wrap;margin:.3rem 0 .6rem">
+    <label style="display:flex;gap:.4rem;align-items:center;font-weight:600">
+      <input type="radio" name="modo" value="lista" checked style="width:auto"> Conferir pela lista</label>
+    <label style="display:flex;gap:.4rem;align-items:center;font-weight:600">
+      <input type="radio" name="modo" value="bipando" style="width:auto"> Conferir bipando o material</label>
+  </div>
+  <p class="pequeno suave" id="ajuda-lista">Tudo vem marcado. <strong>Desmarque o que não chegou</strong> — fica como pendência do envio,
+    sinalizada para tratativa.</p>
+  <div id="bloco-bip" hidden>
+    <p class="pequeno suave">Bipe cada material que chegou. Cada bip marca o item. O que <strong>não</strong> for bipado fica
+      como pendência do envio, sinalizada para tratativa.</p>
+    <label for="bip-receb">Bipe o código de barras</label>
+    <input type="text" id="bip-receb" autocomplete="off" placeholder="aguardando leitura…"
+           style="font-size:1.4rem;padding:.7rem;text-align:center">
+    <div style="display:flex;gap:1rem;align-items:center;margin:.5rem 0 .8rem;flex-wrap:wrap">
+      <span class="etiqueta azul" style="font-size:1rem"><span id="bip-contagem">0</span> de {{ rem.pendentes|length }} bipado(s)</span>
+      <span class="pequeno" id="bip-resultado"></span>
+    </div>
+  </div>
+  <div class="tabela-rolagem"><table>
+    <thead><tr><th>Recebido?</th><th>Material</th><th>AGHU</th><th>Lote</th><th>Validade</th></tr></thead>
+    <tbody>
+      {% for i in rem.pendentes|sort(attribute='id_item') %}
+      <tr data-item="{{ i.id_item }}">
+        <td><input type="checkbox" name="recebido" value="{{ i.id_item }}" checked style="width:1.4rem;height:1.4rem">
+            <span class="etiqueta verde marca-bip" style="display:none">✔ bipado</span><span class="etiqueta cinza marca-falta" style="display:none">não bipado</span></td>
+        <td>{{ i.descricao }}</td><td class="mono pequeno">{{ i.codigo_aghu or '—' }}</td>
+        <td class="mono">{{ i.nLote or '—' }}</td><td class="pequeno">{{ i.validade }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table></div>
+  <div id="bipados-campos"></div>
+  <h2 style="margin-top:1.2rem">2. Dar ciência</h2>
+  <p class="pequeno">Fica registrado em nome de <strong>{{ usuario.nome }}</strong> (usuário logado).</p>
+  <div class="campo" style="max-width:32rem"><label>Observação <span class="opcional">(opcional)</span></label>
+    <input type="text" name="observacao"></div>
+  <button class="botao">Dar ciência do recebimento</button>
+</form>
+<script>
+(function () {
+  var form = document.getElementById("form-receb"), campo = document.getElementById("bip-receb");
+  var bloco = document.getElementById("bloco-bip"), ajuda = document.getElementById("ajuda-lista");
+  var contagem = document.getElementById("bip-contagem"), resultado = document.getElementById("bip-resultado");
+  var campos = document.getElementById("bipados-campos"), caixas = form.querySelectorAll('input[name="recebido"]');
+  var bipados = {};
+  function modo() { return form.querySelector('input[name="modo"]:checked').value; }
+  function atualizar() {
+    var b = modo() === "bipando";
+    bloco.hidden = !b; ajuda.hidden = b;
+    caixas.forEach(function (c) {
+      var ok = !!bipados[c.value];
+      c.style.display = b ? "none" : "";
+      c.parentElement.querySelector(".marca-bip").style.display = (b && ok) ? "" : "none";
+      c.parentElement.querySelector(".marca-falta").style.display = (b && !ok) ? "" : "none";
+      c.closest("tr").style.background = (b && ok) ? "var(--verde-claro)" : "";
+    });
+    contagem.textContent = Object.keys(bipados).length;
+    campos.innerHTML = Object.keys(bipados).map(function (id) { return '<input type="hidden" name="bipado" value="' + id + '">'; }).join("");
+    if (b) campo.focus();
+  }
+  form.querySelectorAll('input[name="modo"]').forEach(function (r) { r.addEventListener("change", atualizar); });
+  campo.addEventListener("keydown", function (e) {
+    if (e.key !== "Enter") return; e.preventDefault();
+    var codigo = campo.value.trim(); campo.value = ""; if (!codigo) return;
+    fetch(form.dataset.identificar + "?codigo=" + encodeURIComponent(codigo)).then(function (r) { return r.json(); })
+      .then(function (d) {
+        var livre = d.ok ? d.itens.map(String).find(function (id) { return !bipados[id]; }) : null;
+        if (livre) { bipados[livre] = true; resultado.style.color = "var(--verde)"; resultado.textContent = "✔ " + codigo + " — recebido."; }
+        else { resultado.style.color = "var(--vermelho)"; resultado.textContent = d.ok ? ("✖ " + codigo + " — já bipado.") : ("✖ " + d.mensagem); }
+        atualizar();
+      }).catch(function () { resultado.textContent = "Falha de conexão — bipe de novo."; });
+  });
+  form.addEventListener("submit", function (e) {
+    var b = modo() === "bipando";
+    var recebidos = b ? Object.keys(bipados).length : Array.prototype.filter.call(caixas, function (c) { return c.checked; }).length;
+    var faltam = caixas.length - recebidos;
+    if (faltam > 0 && !confirm(faltam + " item(ns) " + (b ? "não foram bipados" : "foram desmarcados") +
+        " e ficarão como pendência do envio (não recebidos). Dar ciência assim mesmo?")) e.preventDefault();
+  });
+})();
+</script>
+{% endif %}
+
+{% set resolvidos = rem.itens|rejectattr('situacao', 'equalto', 'pendente')|list %}
+{% if resolvidos %}
+<div class="cartao">
+  <h2>Resultado</h2>
+  <div class="tabela-rolagem"><table>
+    <thead><tr><th>Situação</th><th>Material</th><th>AGHU</th><th>Lote</th><th></th></tr></thead>
+    <tbody>
+      {% for i in resolvidos|sort(attribute='id_item') %}
+      <tr>
+        <td>{% if i.situacao == 'recebido' %}<span class="etiqueta verde">recebido{% if i.tratativa %} depois{% endif %}</span>
+            {% elif i.tratativa %}<span class="etiqueta cinza">{{ tratativas[i.tratativa] }}</span>
+            {% else %}<span class="etiqueta vermelho">não recebido — pendência</span>{% endif %}</td>
+        <td class="pequeno">{{ i.descricao }}</td><td class="mono pequeno">{{ i.codigo_aghu or '—' }}</td>
+        <td class="mono pequeno">{{ i.nLote or '—' }}</td>
+        <td>{% if i.situacao == 'nao_recebido' and not i.tratativa %}
+          <form method="post" action="/farmacia/recebimento/item/{{ i.id_item }}/recebi" style="margin:0">
+            <input type="hidden" name="voltar" value="/farmacia/recebimento/{{ rem.id_remessa }}">
+            <button class="botao secundario pequeno">recebi</button></form>{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table></div>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block titulo %}Histórico de movimentações · {{ APP_TITLE }}{% endblock %}
+
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <div>
+    <h1>Histórico de movimentações</h1>
+    <p>Todo movimento fica registrado — nada é apagado ou reescrito. Filtre por período, local,
+       prontuário e tipo; exporte para planilha.</p>
+  </div>
+  <div class="acoes"><a class="botao secundario" href="/consultas">Voltar</a></div>
+</div>
+
+<form method="get" class="cartao">
+  <div class="filtros">
+    <div class="campo"><label>De</label><input type="date" name="inicio" value="{{ inicio }}"></div>
+    <div class="campo"><label>Até</label><input type="date" name="fim" value="{{ fim }}"></div>
+    <div class="campo">
+      <label>Unidade</label>
+      <select name="unidade">
+        <option value="">todas</option>
+        {% for chave, dados in unidades.items() %}
+          <option value="{{ chave }}" {{ 'selected' if unidade == chave }}>{{ dados.rotulo }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="campo"><label>Sala</label>
+      <input type="text" name="sala" value="{{ sala }}" placeholder="ex.: 03" style="width:90px"></div>
+    <div class="campo"><label>Prontuário ou paciente</label>
+      <input type="text" name="prontuario" value="{{ prontuario }}"></div>
+    <div class="campo">
+      <label>Movimento</label>
+      <select name="tipo">
+        <option value="">todos</option>
+        {% for chave, dados in tipos.items() %}
+          <option value="{{ chave }}" {{ 'selected' if tipo == chave }}>{{ dados[0] }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="campo"><label>Usuário</label>
+      <input type="text" name="usuario" value="{{ usuario_filtro }}" style="width:130px"></div>
+    <button class="botao">Filtrar</button>
+  </div>
+  <p class="suave pequeno" style="margin:.6rem 0 0">
+    O período é a data do movimento. Sem filtro, mostra os últimos 30 dias.
+    Sala e prontuário valem para movimentos ligados a um atendimento (uso, devolução, exclusão, estorno).
+  </p>
+</form>
+
+<div class="cartao">
+  <div class="entre" style="flex-wrap:wrap;gap:.6rem">
+    <h2 style="margin:0">{{ total }} movimento(s){% if total > eventos|length %} — mostrando os {{ eventos|length }} mais recentes{% endif %}</h2>
+    {% if total %}
+      <a class="botao secundario pequeno" href="/consultas/eventos?{{ query ~ ('&' if query else '') }}formato=csv">Exportar planilha (CSV)</a>
+    {% endif %}
+  </div>
+  <div class="tabela-rolagem" style="margin-top:.8rem">
+    <table>
+      <thead><tr><th>Quando</th><th>Movimento</th><th>Local</th><th>Prontuário</th><th>Material</th>
+                 <th>Usuário (login)</th><th>Devolvido por</th><th>Recebido por</th><th>Motivo / observação</th></tr></thead>
+      <tbody>
+        {% for e in eventos %}
+          <tr>
+            <td class="pequeno" style="white-space:nowrap">{{ e.data_evento|data_hora_br }}</td>
+            <td>
+              <span class="etiqueta {{ 'verde' if e.tipo == 'registrar_uso' else ('azul' if e.tipo in ('devolver_nao_utilizado','devolver_caixa') else ('vermelho' if e.tipo in ('excluir_bip','estornar_uso','desfazer','atendimento_cancelado','baixar','marcar_divergencia','devolucao_caixa_divergente') else 'cinza')) }}">{{ e.movimento }}</span>
+            </td>
+            <td class="pequeno">{% if e.sala %}{{ e.rotulo_unidade }} — sala {{ e.sala }}{% else %}—{% endif %}</td>
+            <td class="pequeno">
+              {% if e.prontuario %}
+                <a href="/sala-procedimento/atendimento/{{ e.id_atendimento }}">{{ e.prontuario }}</a>
+                {% if e.paciente %}<br><span class="suave">{{ e.paciente }}</span>{% endif %}
+              {% else %}—{% endif %}
+            </td>
+            <td class="pequeno">
+              {% if e.tipo in ('devolver_caixa', 'devolucao_caixa_divergente', 'conferir_caixa') and e.caixa %}
+                <strong>Caixa <span class="mono">{{ e.caixa }}</span></strong>
+                {% if e.tipo == 'devolver_caixa' %} — {{ e.itens_caixa|length }} item(ns){% endif %}<br>
+                <a href="/consultas/caixa/{{ e.caixa }}?evento={{ e.id_evento }}">ver a caixa neste momento</a>
+                {% if e.itens_caixa %}
+                  <details style="margin-top:.3rem">
+                    <summary style="cursor:pointer" class="suave">itens devolvidos</summary>
+                    {% for i in e.itens_caixa %}
+                      <div class="mono">{{ i.codigo_aghu or '—' }} · {{ i.descritivo_hospital or i.xProd }} · lote {{ i.nLote or '—' }}</div>
+                    {% endfor %}
+                  </details>
+                {% endif %}
+              {% elif e.id_unidade %}
+                <a href="/consultas/item/{{ e.id_unidade }}">{{ e.descritivo_hospital or e.xProd or e.id_unidade }}</a><br>
+                <span class="suave mono">AGHU {{ e.codigo_aghu or '—' }} · lote {{ e.nLote or '—' }}</span>
+                {% if e.caixa %}<br><a class="suave" href="/consultas/caixa/{{ e.caixa }}?evento={{ e.id_evento }}">caixa {{ e.caixa }}</a>{% endif %}
+              {% else %}—{% endif %}
+            </td>
+            <td class="pequeno">{{ e.usuario or '—' }}</td>
+            <td class="pequeno">{% if e.devolvido_por %}<span class="etiqueta azul">{{ e.devolvido_por }}</span>{% else %}—{% endif %}</td>
+            <td class="pequeno">{% if e.recebido_por %}<span class="etiqueta verde">{{ e.recebido_por }}</span>{% else %}—{% endif %}</td>
+            <td class="pequeno">{{ e.motivo or '' }} <span class="suave">{{ e.observacao or '' }}</span></td>
+          </tr>
+        {% else %}
+          <tr><td colspan="9" class="vazio">Nenhum movimento com esses filtros.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,42 @@
+<html><head><meta charset="utf-8"><title>Efetivar Requisição Material (simulado v18.12)</title></head>
+<body style="font-family:sans-serif">
+<!-- Fiel ao HAR de 16/11/2026: a Quantidade Atendida do lote é readonly até marcar o
+     checkbox, e o AGHU a preenche sozinho quando a Quantidade Entregue do ITEM é digitada. -->
+<div id="msgs"></div>
+<form id="formRequisicaoMaterialTb">
+ Prontuário <input id="prontuario:prontuario:inputId" value="22375521" disabled>
+ <table border="1"><thead><tr><th>Ação</th><th>Ação</th><th>Material</th><th>Fornecedor</th>
+   <th>Qtd Requisitada</th><th>Qtd Entregue</th><th>Unidade</th><th>Saldo</th><th>Controle de Validade</th></tr></thead>
+ <tbody id="sdTableItemRequisicaoMaterial:resultList_data">
+  <tr data-ri="0"><td><div class="ui-radiobutton-box" onclick="sel(0,'401557')">( )</div></td><td>a</td>
+    <td>401557 - CATETER CENTRAL, TOTALMENTE IMPLANTAVEL - UND - 122039</td><td>1 - FORNECEDOR NACIONAL EM GERAL</td>
+    <td>2</td><td><input type="text" id="sdTableItemRequisicaoMaterial:resultList:0:qtdeEntregue"
+      onchange="qtdItem(0,'401557',this.value)"></td><td>UN</td><td>8</td><td>Sim</td></tr>
+  <tr data-ri="1"><td><div class="ui-radiobutton-box" onclick="sel(1,'24870')">( )</div></td><td>a</td>
+    <td>24870 - INTRODUTOR FEMURAL 5F X 11CM</td><td>1 - FORNECEDOR NACIONAL EM GERAL</td>
+    <td>1</td><td><input type="text" id="sdTableItemRequisicaoMaterial:resultList:1:qtdeEntregue"
+      onchange="qtdItem(1,'24870',this.value)"></td><td>UN</td><td>3</td><td>Sim</td></tr>
+ </tbody></table></form>
+<form id="formControleValidade"><table border="1"><thead><tr><th>Ação</th><th>Lote</th><th>Série</th><th>Validade</th>
+  <th>Marca</th><th>Forn</th><th>CGC</th><th>Razão</th><th>Quantidade Atendida</th><th>Quantidade Lote</th></tr></thead>
+<tbody id="tabelaControleValidade:resultList_data"></tbody></table></form>
+<script>
+const LOTES={"401557":[["GB2413","30/11/2030",6],["GB2411","30/11/2030",1],["GB2415","30/11/2030",1]],
+             "24870":[["IF21","30/11/2030",3]]};
+window.LOG=[]; let atual="";
+function q(id){return document.getElementById(id);}
+function sel(ri,c){ atual=c;
+  q("tabelaControleValidade:resultList_data").innerHTML=LOTES[c].map((l,i)=>
+    `<tr data-ri="${i}"><td><div class="ui-chkbox-box" onclick="marca(${i})">[ ]</div>
+      <input type="checkbox" id="cv${i}" style="display:none"></td><td><label>${l[0]}</label></td><td></td>
+      <td>${l[1]}</td><td>GMI</td><td>F</td><td>x</td><td>x</td>
+      <td><input type="text" id="qa${i}" readonly data-lote="${l[0]}"
+        onchange="LOG.push(['lote',atual,'${l[0]}',this.value])"></td><td><label>${l[2]}</label></td></tr>`).join(""); }
+function marca(i){ const c=q("cv"+i); c.checked=!c.checked; q("qa"+i).readOnly=!c.checked;
+  if(!c.checked) q("qa"+i).value=""; }
+function qtdItem(ri,c,v){ LOG.push(["item",c,v]);
+  // o AGHU preenche a Quantidade Atendida: com UM lote marcado, leva tudo
+  const marcados=[...document.querySelectorAll('[id^=cv]')].filter(x=>x.checked);
+  if(marcados.length===1){ const i=marcados[0].id.slice(2); const campo=q("qa"+i);
+    campo.value=v; LOG.push(["lote",c,campo.dataset.lote,v]); } }
+</script></body></html>

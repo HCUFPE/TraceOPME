@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% import "indicadores/_componentes.html" as ui with context %}
+{% block titulo %}Desperdício e validade · {{ APP_TITLE }}{% endblock %}
+
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <div>
+    <h1>Desperdício e validade</h1>
+    <p>O que está vencido ou prestes a vencer, e o que foi perdido ou baixado.
+       Período de {{ inicio|data_br }} a {{ fim|data_br }}.</p>
+  </div>
+</div>
+
+{{ ui.abas('desperdicio', inicio, fim) }}
+{{ ui.filtro_periodo('/indicadores/desperdicio', inicio, fim) }}
+
+<div class="grade-kpi">
+  {% for item in indicadores %}{{ ui.cartao(item) }}{% endfor %}
+</div>
+
+<div class="grade grade-2">
+  <div class="cartao">
+    <h2>Estoque por faixa de validade</h2>
+    <p class="suave pequeno">Fotografia de hoje do estoque do almoxarifado.</p>
+    <div class="tabela-rolagem">
+      <table>
+        <thead><tr><th>Faixa</th><th class="num">Unidades</th><th class="num">Valor</th></tr></thead>
+        <tbody>
+          {% for v in vencimentos %}
+            <tr class="{{ 'destaque-vermelho' if v.faixa == 'Já vencidos' and v.quantidade }}">
+              <td>{{ v.faixa }}</td>
+              <td class="num"><strong>{{ v.quantidade }}</strong></td>
+              <td class="num">{{ v.valor|moeda }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div style="margin-top:1rem">
+      {{ ui.barras(vencimentos, 'faixa', 'valor', formatador='moeda', cor='vermelho') }}
+    </div>
+    <a class="botao secundario pequeno" href="/consultas/validades" style="margin-top:.75rem">
+      Ver item a item
+    </a>
+  </div>
+
+  <div class="cartao">
+    <h2>Baixas e divergências por motivo</h2>
+    <p class="suave pequeno">O texto vem do motivo digitado por quem registrou.</p>
+    {% if baixas %}
+      <div class="tabela-rolagem">
+        <table>
+          <thead><tr><th>Motivo</th><th class="num">Unidades</th><th class="num">Valor</th></tr></thead>
+          <tbody>
+            {% for b in baixas %}
+              <tr>
+                <td>{{ b.motivo }}</td>
+                <td class="num">{{ b.quantidade }}</td>
+                <td class="num">{{ b.valor|moeda }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="vazio">Nenhuma baixa ou divergência no período.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

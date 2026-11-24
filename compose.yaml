@@ -1,0 +1,14 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: traceopme-app
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data      # banco do TraceOPME (opme.db), app.db e backups
+      - ./logs:/app/logs      # log técnico
+    restart: always

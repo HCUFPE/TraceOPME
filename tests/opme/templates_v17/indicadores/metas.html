@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% import "indicadores/_componentes.html" as ui with context %}
+{% block titulo %}Metas dos indicadores · {{ APP_TITLE }}{% endblock %}
+
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <div>
+    <h1>Metas dos indicadores</h1>
+    <p>Defina o que é aceitável em cada indicador. Os valores sugeridos são um ponto de partida —
+       ajuste depois de um ou dois meses, quando houver base histórica do serviço.</p>
+  </div>
+</div>
+
+{{ ui.abas('metas', hoje(), hoje()) }}
+
+<div class="aviso info">
+  <strong>Como funciona o semáforo.</strong>
+  Em indicadores do tipo “quanto maior melhor”, fica verde a partir da meta, amarelo a partir do
+  limite de atenção e vermelho abaixo dele. Nos do tipo “quanto menor melhor”, é o inverso.
+  Salvar com os dois campos <strong>em branco</strong> desliga o semáforo daquele indicador —
+  ele passa a ser só acompanhamento. Para voltar ao valor que sugeri, use
+  <strong>“Voltar ao sugerido”</strong>.
+</div>
+
+{% for chave, dados in grupos.items() %}
+  <div class="cartao">
+    <h2>{{ dados[0] }}</h2>
+    <p class="suave pequeno">{{ dados[1] }}</p>
+
+    <div class="tabela-rolagem">
+      <table>
+        <thead>
+          <tr><th style="min-width:220px">Indicador</th><th>Sentido</th>
+              <th class="num" style="width:120px">Meta</th>
+              <th class="num" style="width:120px">Atenção</th>
+              <th style="width:200px">Ações</th></tr>
+        </thead>
+        <tbody>
+          {% for ind in por_grupo[chave] %}
+            {% set c = config[ind.codigo] %}
+            <tr>
+              <td>
+                {# O formulário mora aqui, mas os campos ficam nas outras células
+                   ligados pelo atributo form= — assim o HTML da tabela continua válido. #}
+                <form method="post" action="/indicadores/metas/{{ ind.codigo }}"
+                      id="meta-{{ ind.codigo }}"></form>
+                <strong>{{ ind.nome }}</strong>
+                <div class="suave pequeno">{{ ind.pergunta }}</div>
+                <details class="pequeno" style="margin-top:.25rem">
+                  <summary style="cursor:pointer;color:var(--azul)">como é calculado</summary>
+                  <div style="margin-top:.35rem">{{ ind.formula }}</div>
+                  <div class="suave" style="margin-top:.35rem">{{ ind.por_que }}</div>
+                </details>
+              </td>
+              <td class="pequeno">
+                {% if ind.direcao == 'maior' %}
+                  <span class="etiqueta verde">quanto maior, melhor</span>
+                {% elif ind.direcao == 'menor' %}
+                  <span class="etiqueta azul">quanto menor, melhor</span>
+                {% else %}
+                  <span class="etiqueta cinza">acompanhamento</span>
+                {% endif %}
+                <div class="suave" style="margin-top:.25rem">unidade: {{ ind.unidade }}</div>
+              </td>
+              <td class="num">
+                <input type="text" name="meta" inputmode="decimal" style="text-align:right"
+                       form="meta-{{ ind.codigo }}"
+                       value="{{ c.meta if c.meta is not none else '' }}">
+              </td>
+              <td class="num">
+                <input type="text" name="atencao" inputmode="decimal" style="text-align:right"
+                       form="meta-{{ ind.codigo }}"
+                       value="{{ c.atencao if c.atencao is not none else '' }}">
+              </td>
+              <td>
+                <div style="display:flex;gap:.4rem;flex-wrap:wrap">
+                  <button class="botao pequeno" form="meta-{{ ind.codigo }}"
+                          name="acao" value="salvar">Salvar</button>
+                  {% if c.personalizada %}
+                    <button class="botao pequeno secundario" form="meta-{{ ind.codigo }}"
+                            name="acao" value="restaurar">Voltar ao sugerido</button>
+                  {% endif %}
+                </div>
+                {% if c.personalizada and c.atualizado_por %}
+                  <div class="suave pequeno" style="margin-top:.3rem">
+                    ajustada por {{ c.atualizado_por }} em {{ c.atualizado_em|data_hora_br }}
+                  </div>
+                {% else %}
+                  <div class="suave pequeno" style="margin-top:.3rem">valor sugerido</div>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% endfor %}
+{% endblock %}

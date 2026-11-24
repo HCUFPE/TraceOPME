@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% block titulo %}Relatório {{ inventario.id_inventario }} · {{ APP_TITLE }}{% endblock %}
+
+{% macro tabela_itens(itens, mostrar_codigo_lido=false) %}
+  <div class="tabela-rolagem">
+    <table class="tabela-detalhe">
+      <thead>
+        <tr><th>Código</th><th>Produto</th><th>Lote</th><th>Validade</th>
+            <th>Nº de série</th><th>Fornecedor</th><th>No sistema</th>
+            {% if mostrar_codigo_lido %}<th>Código bipado</th>{% endif %}</tr>
+      </thead>
+      <tbody>
+        {% for i in itens %}
+          <tr>
+            <td class="mono">{{ i.get('codigo_aghu') or '—' }}
+              {% if i.get('id_unidade') %}<div class="pequeno suave">{{ i.id_unidade }}</div>{% endif %}
+            </td>
+            <td>{{ i.get('descricao_aghu') or i.get('xProd') or '—' }}
+              {# "separado para" só valeria no grupo dos não encontrados; nos outros
+                 o material pode estar na sala ou já utilizado. O vínculo com o
+                 paciente é o mesmo em todos, então o rótulo é neutro. #}
+              {% if i.get('paciente') %}
+                <div class="pequeno suave">paciente {{ i.paciente }}</div>
+              {% endif %}
+            </td>
+            <td class="mono">{{ i.get('nLote') or '—' }}</td>
+            <td class="mono">{{ i.get('dVal')|data_br or '—' }}</td>
+            <td class="mono pequeno">{{ i.get('numero_serie') or '—' }}</td>
+            <td class="pequeno">{{ i.get('fornecedor') or '—' }}</td>
+            {# Os dois grupos têm formas diferentes: o não encontrado vem da unidade
+               (`status`), a leitura vem de `inventario_leituras` (`status_no_sistema`).
+               `.get` porque a chave ausente não pode virar erro de template. #}
+            <td class="pequeno">{{ rotulo_status(i.get('status') or i.get('status_no_sistema') or '') or '—' }}</td>
+            {% if mostrar_codigo_lido %}<td class="mono pequeno">{{ i.get('codigo_lido') or '—' }}</td>{% endif %}
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endmacro %}
+
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <div>
+    <h1>Relatório da contagem</h1>
+    <p class="mono">{{ inventario.id_inventario }} · {{ inventario.local_rotulo }}</p>
+    <p class="suave pequeno">
+      Aberta por {{ inventario.criado_por }} em {{ inventario.criado_em|data_hora_br }}.
+      {% if inventario.encerrado_em %}
+        Encerrada por {{ inventario.encerrado_por }} em {{ inventario.encerrado_em|data_hora_br }}.
+      {% else %}
+        <strong>Ainda em contagem</strong> — este resultado é parcial.
+      {% endif %}
+      {% if inventario.observacao %}<br>{{ inventario.observacao }}{% endif %}
+    </p>
+  </div>
+  <div class="acoes">
+    <button class="botao secundario" onclick="window.print()">Imprimir</button>
+    <a class="botao secundario"
+       href="/inventario/{{ inventario.id_inventario }}/relatorio?exportar=2">Exportar consolidado (CSV)</a>
+    {% if total_pendencias %}
+      <a class="botao secundario"
+         href="/inventario/{{ inventario.id_inventario }}/relatorio?exportar=1">Exportar pendências (CSV)</a>
+    {% endif %}
+    {% if inventario.status == 'aberto' %}
+      <a class="botao" href="/inventario/{{ inventario.id_inventario }}">Continuar contando</a>
+    {% endif %}
+    <a class="botao secundario" href="/inventario">Voltar</a>
+  </div>
+</div>
+
+<div class="grade grade-4" style="margin-bottom:1.5rem">
+  <div class="cartao"><div class="rotulo">esperados no local</div>
+    <div class="numero">{{ resumo.esperados }}</div></div>
+  <div class="cartao"><div class="rotulo">conferidos</div>
+    <div class="numero">{{ resumo.conferidos }}</div></div>
+  <div class="cartao"><div class="rotulo">não encontrados</div>
+    <div class="numero">{{ nao_encontrados|length }}</div></div>
+  <div class="cartao"><div class="rotulo">total de pendências</div>
+    <div class="numero">{{ total_pendencias }}</div></div>
+</div>
+
+{% if not total_pendencias %}
+  <div class="aviso sucesso">
+    <strong>O estoque fecha.</strong> Tudo que o sistema esperava em
+    {{ inventario.local_rotulo }} foi bipado, e nada apareceu fora do lugar.
+  </div>
+{% endif %}
+
+<div class="cartao" style="margin-bottom:1.5rem">
+  <h2>Consolidado por material (código AGHU)</h2>
+  <p class="suave pequeno">Para cada material: quanto o sistema esperava em {{ inventario.local_rotulo }}, quanto foi
+    encontrado na contagem, quanto não foi encontrado e quanto apareceu a mais ou fora do lugar.</p>
+  {% if consolidado %}
+  <div class="tabela-rolagem">
+    <table>
+      <thead><tr><th>AGHU</th><th>Material (descrição AGHU)</th><th class="num">Esperado no sistema</th>
+                 <th class="num">Encontrado</th><th class="num">Não encontrado</th><th class="num">A mais / fora do lugar</th>
+                 <th>Resultado</th></tr></thead>
+      <tbody>
+        {% for l in consolidado %}
+          <tr>
+            <td class="mono">{{ l.codigo_aghu }}</td>
+            <td>{{ l.descricao or '—' }}</td>
+            <td class="num">{{ l.esperado }}</td>
+            <td class="num">{{ l.encontrado }}</td>
+            <td class="num">{% if l.nao_encontrado %}<strong style="color:var(--vermelho)">{{ l.nao_encontrado }}</strong>{% else %}0{% endif %}</td>
+            <td class="num">{% if l.a_mais %}<strong style="color:var(--amarelo)">{{ l.a_mais }}</strong>{% else %}0{% endif %}</td>
+            <td>{% if l.resultado == 'confere' %}<span class="etiqueta verde">confere</span>
+                {% else %}<span class="etiqueta {{ 'vermelho' if l.nao_encontrado else 'amarelo' }}">{{ l.resultado }}</span>{% endif %}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot><tr><th></th><th>Total</th>
+        <th class="num">{{ consolidado|sum(attribute='esperado') }}</th>
+        <th class="num">{{ consolidado|sum(attribute='encontrado') }}</th>
+        <th class="num">{{ consolidado|sum(attribute='nao_encontrado') }}</th>
+        <th class="num">{{ consolidado|sum(attribute='a_mais') }}</th><th></th></tr></tfoot>
+    </table>
+  </div>
+  {% else %}
+    <p class="vazio">Nada esperado neste local e nada bipado.</p>
+  {% endif %}
+</div>
+
+{% if nao_encontrados %}
+  <div class="cartao" style="border-left:5px solid var(--vermelho);margin-bottom:1.5rem">
+    <h2>{{ nao_encontrados|length }} não encontrado(s) na contagem</h2>
+    <p class="suave pequeno">
+      O sistema esperava estes materiais em {{ inventario.local_rotulo }} e eles
+      não foram bipados. Procure fisicamente antes de dar baixa: o mais comum é
+      estar em outra prateleira, ou já ter sido usado na sala sem ninguém bipar.
+    </p>
+    {{ tabela_itens(nao_encontrados) }}
+  </div>
+{% endif %}
+
+{% for chave, itens in grupos.items() %}
+  {% if itens %}
+    <div class="cartao" style="border-left:5px solid var(--amarelo);margin-bottom:1.5rem">
+      <h2>{{ itens|length }} · {{ situacoes[chave] }}</h2>
+      <p class="suave pequeno">{{ explicacoes[chave] }}</p>
+      {{ tabela_itens(itens, mostrar_codigo_lido=true) }}
+    </div>
+  {% endif %}
+{% endfor %}
+
+<div class="cartao">
+  <h2>{{ conferidos|length }} conferido(s)</h2>
+  <p class="suave pequeno">
+    Material bipado e encontrado exatamente onde o sistema dizia que estava.
+    Nada a fazer com estes.
+  </p>
+</div>
+{% endblock %}

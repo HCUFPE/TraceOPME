@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block titulo %}Enviar para a farmácia · {{ APP_TITLE }}{% endblock %}
+
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <div>
+    <h1>Enviar para a farmácia</h1>
+    <p>Escolha a farmácia de destino, bipe o material e finalize o envio. A farmácia confere e dá ciência;
+       o que ela não receber volta para cá como pendência.</p>
+  </div>
+  <div class="acoes"><a class="botao secundario" href="/almoxarifado">Voltar</a></div>
+</div>
+
+<form method="post" action="/almoxarifado/envios/novo" class="cartao" style="border-left:5px solid var(--azul, #0c3a67)">
+  <h2>Novo envio para:</h2>
+  <div class="linha-botoes">
+    {% for chave, rotulo in farmacias.items() %}
+      <button class="botao" name="farmacia" value="{{ chave }}" style="font-size:1.1rem;padding:.9rem 1.4rem">{{ rotulo }}</button>
+    {% endfor %}
+  </div>
+  <p class="pequeno suave" style="margin:.5rem 0 0">Se já houver um envio aberto para essa farmácia, ele continua de onde parou.</p>
+</form>
+
+{% if pendencias %}
+<div class="cartao" id="pendencias" style="border-left:5px solid var(--vermelho, #b3261e)">
+  <h2>Não recebidos pela farmácia — tratar ({{ pendencias|length }})</h2>
+  <div class="tabela-rolagem"><table>
+    <thead><tr><th>Envio</th><th>Farmácia</th><th>Material</th><th>AGHU</th><th>Lote</th><th>Conferido por</th><th>Tratativa</th></tr></thead>
+    <tbody>
+      {% for p in pendencias %}
+      <tr>
+        <td class="mono pequeno"><a href="/almoxarifado/envio/{{ p.id_remessa }}">{{ p.id_remessa }}</a></td>
+        <td class="pequeno">{{ p.farmacia_rotulo }}</td>
+        <td class="pequeno">{{ p.descricao }}</td>
+        <td class="mono pequeno">{{ p.codigo_aghu or '—' }}</td>
+        <td class="mono pequeno">{{ p.nLote or '—' }}</td>
+        <td class="pequeno">{{ p.conferida_nome or '—' }}<br><span class="suave">{{ p.conferida_em|data_hora_br }}</span></td>
+        <td>
+          <form method="post" action="/almoxarifado/envio/item/{{ p.id_item }}/tratar" style="display:flex;gap:.3rem;flex-wrap:wrap;align-items:center">
+            <select name="acao" required style="width:auto">
+              <option value="">— escolha —</option>
+              <option value="voltou_almoxarifado">Voltou ao almoxarifado</option>
+              <option value="divergencia">Divergência / extravio</option>
+            </select>
+            <input type="text" name="motivo" placeholder="motivo (obrigatório na divergência)" style="width:14rem">
+            <button class="botao secundario pequeno">registrar</button>
+          </form>
+          <span class="pequeno suave">Se chegou na farmácia, ela marca “recebi” na tela dela.</span>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table></div>
+</div>
+{% endif %}
+
+<div class="cartao">
+  <h2>Envios</h2>
+  {% set todos = abertas + enviadas + conferidas %}
+  {% if todos %}
+  <div class="tabela-rolagem"><table>
+    <thead><tr><th>Envio</th><th>Farmácia</th><th>Situação</th><th class="num">Itens</th><th>Quando</th><th></th></tr></thead>
+    <tbody>
+      {% for r in todos %}
+      <tr>
+        <td class="mono pequeno">{{ r.id_remessa }}</td>
+        <td>{{ r.farmacia_rotulo }}</td>
+        <td>{% if r.status == 'aberta' %}<span class="etiqueta azul">em montagem</span>
+            {% elif r.status == 'enviada' %}<span class="etiqueta amarelo">aguardando a farmácia</span>
+            {% else %}<span class="etiqueta verde">conferido por {{ r.conferida_nome }}</span>
+              {% if r.nao_recebidos %}<span class="etiqueta vermelho">{{ r.nao_recebidos }} não recebido(s)</span>{% endif %}{% endif %}</td>
+        <td class="num">{{ r.qtd }}</td>
+        <td class="pequeno">{{ (r.enviada_em or r.criado_em)|data_hora_br }}</td>
+        <td><a class="botao pequeno {{ '' if r.status == 'aberta' else 'secundario' }}" href="/almoxarifado/envio/{{ r.id_remessa }}">{{ 'Continuar' if r.status == 'aberta' else 'Ver' }}</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}
+  <p class="vazio">Nenhum envio ainda.</p>
+  {% endif %}
+</div>
+{% endblock %}

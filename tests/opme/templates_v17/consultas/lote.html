@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block titulo %}Rastreio por lote · {{ APP_TITLE }}{% endblock %}
+
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <div>
+    <h1>Rastreio por lote ou código</h1>
+    <p>Use em recall: mostra onde está cada unidade, inclusive as já implantadas.</p>
+  </div>
+  <div class="acoes"><a class="botao secundario" href="/consultas">Voltar</a></div>
+</div>
+
+<form method="get" class="cartao">
+  <div class="filtros">
+    <div class="campo" style="flex:1">
+      <label>Lote, código de barras ou número de série</label>
+      <input type="text" name="termo" value="{{ termo }}" autofocus>
+    </div>
+    <button class="botao">Rastrear</button>
+  </div>
+</form>
+
+{% if termo %}
+<div class="cartao">
+  <h2>{{ linhas|length }} unidade(s) encontrada(s)</h2>
+  {% if linhas %}
+    <div class="tabela-rolagem">
+      <table>
+        <thead><tr><th>Produto</th><th>Lote</th><th>Validade</th><th>Situação</th>
+                   <th>Prontuário</th><th>Sala</th><th>Data</th><th></th></tr></thead>
+        <tbody>
+          {% for l in linhas %}
+            <tr>
+              <td>{{ l.xProd }}</td>
+              <td class="mono">{{ l.nLote or '—' }}</td>
+              <td>{{ l.dVal|data_br or '—' }}</td>
+              <td><span class="etiqueta {{ cor_status(l.status) }}">{{ rotulo_status(l.status) }}</span></td>
+              <td>{{ l.prontuario or '—' }}</td>
+              <td>{{ l.sala or '—' }}</td>
+              <td>{{ l.data_procedimento|data_br or '—' }}</td>
+              <td><a class="pequeno" href="/consultas/item/{{ l.id_unidade }}">abrir</a></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="vazio">Nada encontrado para “{{ termo }}”.</p>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}

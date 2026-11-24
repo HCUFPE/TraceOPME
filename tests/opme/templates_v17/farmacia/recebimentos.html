@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block titulo %}Receber do almoxarifado · {{ APP_TITLE }}{% endblock %}
+
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <div>
+    <h1>Receber do almoxarifado</h1>
+    <p>Envios do almoxarifado para esta farmácia. Confira (pela lista ou bipando) e dê ciência: o que você
+       receber entra no estoque da farmácia e passa a poder ser dispensado para a sala.</p>
+  </div>
+  <div class="acoes"><a class="botao secundario" href="/farmacia">Voltar</a></div>
+</div>
+
+{% include "sala_procedimento/_unidade.html" %}
+<p class="pequeno" style="margin:.2rem 0 .8rem">
+  {% if filtrando %}Mostrando só {{ rotulo_unidade(unidade_atual) }} · <a href="/farmacia/recebimentos?todas=1">ver de todas as farmácias</a>
+  {% else %}Mostrando todas as farmácias.{% endif %}
+</p>
+
+<div class="cartao" style="border-left:5px solid var(--amarelo, #b58100)">
+  <h2>Para conferir ({{ enviadas|length }})</h2>
+  {% if enviadas %}
+  <div class="tabela-rolagem"><table>
+    <thead><tr><th>Envio</th><th>Farmácia</th><th class="num">Itens</th><th>Enviado</th><th></th></tr></thead>
+    <tbody>
+      {% for r in enviadas %}
+      <tr>
+        <td class="mono pequeno">{{ r.id_remessa }}</td><td>{{ r.farmacia_rotulo }}</td><td class="num">{{ r.qtd }}</td>
+        <td class="pequeno">{{ r.enviada_por }} · {{ r.enviada_em|data_hora_br }}{% if r.observacao %}<br><span class="suave">{{ r.observacao }}</span>{% endif %}</td>
+        <td><a class="botao pequeno" href="/farmacia/recebimento/{{ r.id_remessa }}">Conferir e dar ciência</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}<p class="vazio">Nenhum envio aguardando conferência.</p>{% endif %}
+</div>
+
+{% if pendencias %}
+<div class="cartao" style="border-left:5px solid var(--vermelho, #b3261e)">
+  <h2>Não recebidos — pendências ({{ pendencias|length }})</h2>
+  <p class="pequeno suave">Itens que o almoxarifado enviou e não foram recebidos na conferência. Se chegou depois, marque
+    “recebi”. Se não chegou, o almoxarifado registra a tratativa (voltou ao almoxarifado ou divergência).</p>
+  <div class="tabela-rolagem"><table>
+    <thead><tr><th>Envio</th><th>Material</th><th>AGHU</th><th>Lote</th><th>Validade</th><th></th></tr></thead>
+    <tbody>
+      {% for p in pendencias %}
+      <tr>
+        <td class="mono pequeno">{{ p.id_remessa }}</td><td class="pequeno">{{ p.descricao }}</td>
+        <td class="mono pequeno">{{ p.codigo_aghu or '—' }}</td><td class="mono pequeno">{{ p.nLote or '—' }}</td>
+        <td class="pequeno">{{ p.validade }}</td>
+        <td><form method="post" action="/farmacia/recebimento/item/{{ p.id_item }}/recebi" style="margin:0"
+                  data-confirmar="Confirmar que este item chegou na farmácia?">
+          <button class="botao secundario pequeno">recebi</button></form></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table></div>
+</div>
+{% endif %}
+
+{% if conferidas %}
+<div class="cartao">
+  <h2>Conferidos recentemente</h2>
+  <ul class="pequeno" style="margin:0 0 0 1rem">
+    {% for r in conferidas %}<li><a href="/farmacia/recebimento/{{ r.id_remessa }}" class="mono">{{ r.id_remessa }}</a> · {{ r.farmacia_rotulo }} ·
+      {{ r.qtd }} item(ns) · ciência de {{ r.conferida_nome }} em {{ r.conferida_em|data_hora_br }}
+      {% if r.nao_recebidos %}<span class="etiqueta vermelho">{{ r.nao_recebidos }} não recebido(s)</span>{% endif %}</li>{% endfor %}
+  </ul>
+</div>
+{% endif %}
+{% endblock %}

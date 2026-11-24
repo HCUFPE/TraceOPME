@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+{% block titulo %}Painel · {{ APP_TITLE }}{% endblock %}
+
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <div>
+    <h1>Painel de situação</h1>
+    <p>O que está parado, o que precisa da sua ação e onde está cada material agora.</p>
+  </div>
+</div>
+
+{% if painel.alertas %}
+<h2>Alertas</h2>
+<div class="cartao" style="margin-bottom:1.75rem;border-left:5px solid var(--vermelho)">
+  <p class="suave pequeno">
+    Material vencido ou de lote bloqueado registrado em uso, ou saldo de empenho perto do
+    limite ou esgotado. Vale olhar com atenção redobrada.
+  </p>
+  {% for a in painel.alertas %}
+    <div style="padding:.75rem 0;border-bottom:1px solid var(--borda)">
+      <div class="entre">
+        <strong>{{ a.titulo }}</strong>
+        <span class="suave pequeno">{{ a.criado_em|data_hora_br }}</span>
+      </div>
+      <p class="pequeno mono" style="margin:.3rem 0;white-space:pre-wrap">{{ a.mensagem }}</p>
+      {% set detalhes = itens_alerta(a) %}
+      {% if detalhes %}
+        <div class="pequeno" style="margin:.3rem 0 .6rem">
+          Abrir cada item:
+          {% for item in detalhes %}
+            <a href="/consultas/item/{{ item.id_unidade }}">{{ item.codigo_aghu or item.xProd }}</a>{% if not loop.last %} ·{% endif %}
+          {% endfor %}
+        </div>
+      {% elif a.link %}
+        <div class="pequeno" style="margin:.3rem 0 .6rem"><a href="{{ a.link }}">Abrir</a></div>
+      {% endif %}
+      <form method="post" action="/alertas/{{ a.id_alerta }}/resolver" style="display:inline">
+        <button class="botao secundario pequeno">Já verifiquei — marcar como resolvido</button>
+      </form>
+    </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<h2>Pendências que dependem de você</h2>
+{% if painel.pendencias %}
+  <div class="grade grade-3" style="margin-bottom:1.75rem">
+    {% for item in painel.pendencias %}
+      <a class="acao-card {{ item.urgencia }}" href="{{ item.acao }}">
+        <div class="numero">{{ item.quantidade }}</div>
+        <div class="rotulo">{{ item.titulo }}</div>
+        <div class="seta" style="margin-top:.5rem">Resolver agora →</div>
+      </a>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="cartao">
+    <p style="margin:0">Nenhuma pendência aberta para o seu perfil. Tudo em dia.</p>
+  </div>
+{% endif %}
+
+<h2>Onde estão os materiais</h2>
+<div class="grade grade-4" style="margin-bottom:1.75rem">
+  {% for bloco in painel.estoques %}
+    <a class="acao-card" href="{{ bloco.link }}">
+      <div class="numero">{{ bloco.quantidade }}</div>
+      <div class="rotulo">{{ bloco.titulo }}</div>
+    </a>
+  {% endfor %}
+</div>
+
+<div class="grade grade-2">
+  <div class="cartao">
+    <div class="entre">
+      <h2>Cirurgias de hoje</h2>
+      <a class="pequeno" href="/sala-procedimento/atendimentos">ver agenda completa</a>
+    </div>
+    {% if painel.cirurgias_hoje %}
+      <div class="tabela-rolagem">
+        <table>
+          <thead>
+            <tr>
+              <th>Unidade</th><th>Sala</th><th>Prontuário</th><th>Especialidade</th>
+              <th class="num">Usados</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for c in painel.cirurgias_hoje %}
+              <tr>
+                <td><span class="etiqueta {{ cor_unidade(c.unidade) }}">{{ rotulo_unidade(c.unidade) }}</span></td>
+                <td><strong>{{ c.sala }}</strong></td>
+                <td><a href="/consultas/prontuario?numero={{ c.prontuario }}">{{ c.prontuario }}</a></td>
+                <td>{{ c.especialidade|especialidade }}</td>
+                <td class="num">{{ c.utilizados or 0 }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="vazio">Nenhum atendimento cadastrado para hoje.</p>
+    {% endif %}
+  </div>
+
+  <div class="cartao">
+    <div class="entre">
+      <h2>Validades críticas</h2>
+      <a class="pequeno" href="/consultas/validades">ver todas</a>
+    </div>
+    {% if painel.validades %}
+      <div class="tabela-rolagem">
+        <table>
+          <thead><tr><th>Produto</th><th>Lote</th><th>Vence em</th><th class="num">Qtd.</th></tr></thead>
+          <tbody>
+            {% for v in painel.validades[:8] %}
+              <tr>
+                <td>{{ v.xProd }}</td>
+                <td class="mono">{{ v.nLote or '—' }}</td>
+                <td>
+                  {{ v.dVal|data_br }}
+                  {% if v.dias_restantes is not none %}
+                    <span class="etiqueta {{ 'vermelho' if v.dias_restantes < 0 else ('amarelo' if v.dias_restantes <= 30 else 'cinza') }}">
+                      {% if v.dias_restantes < 0 %}vencido{% else %}{{ v.dias_restantes }} dias{% endif %}
+                    </span>
+                  {% endif %}
+                </td>
+                <td class="num">{{ v.quantidade }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="vazio">Nenhum item próximo do vencimento.</p>
+    {% endif %}
+  </div>
+</div>
+
+{% if painel.parados %}
+<div class="cartao">
+  <h2>Itens parados em trânsito</h2>
+  <p class="suave pequeno">Foram enviados mas ninguém confirmou o recebimento. Costuma ser conferência esquecida.</p>
+  <div class="tabela-rolagem">
+    <table>
+      <thead><tr><th>Item</th><th>Situação</th><th>Prontuário</th><th class="num">Parado há</th><th></th></tr></thead>
+      <tbody>
+        {% for p in painel.parados %}
+          <tr>
+            <td>{{ p.xProd }} <span class="suave pequeno">lote {{ p.nLote or '—' }}</span></td>
+            <td><span class="etiqueta {{ cor_status(p.status) }}">{{ rotulo_status(p.status) }}</span></td>
+            <td>{{ p.prontuario or '—' }}</td>
+            <td class="num">{{ p.dias_parado }} dia(s)</td>
+            <td><a class="pequeno" href="/consultas/item/{{ p.id_unidade }}">detalhes</a></td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<div class="cartao">
+  <div class="entre">
+    <h2>Últimos movimentos</h2>
+    <a class="pequeno" href="/consultas/eventos">ver histórico completo</a>
+  </div>
+  <div class="tabela-rolagem">
+    <table>
+      <thead><tr><th>Quando</th><th>Movimento</th><th>Item</th><th>Prontuário</th><th>Usuário</th></tr></thead>
+      <tbody>
+        {% for e in painel.ultimos_eventos %}
+          <tr>
+            <td class="pequeno">{{ e.quando }}</td>
+            <td>{{ OPERACOES[e.tipo].titulo if e.tipo in OPERACOES else rotulo_evento(e.tipo) }}</td>
+            <td>{{ e.xProd or '—' }}</td>
+            <td>{{ e.prontuario or '—' }}</td>
+            <td class="pequeno">{{ e.usuario }}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="5" class="vazio">Nenhum movimento registrado ainda.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

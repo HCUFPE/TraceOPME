@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block titulo %}Material não cadastrado · {{ APP_TITLE }}{% endblock %}
+
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <div>
+    <h1>Material não cadastrado usado na sala</h1>
+    <p>Exceção: a sala usou material que não existia no sistema e registrou com a senha da supervisão
+       (a etiqueta foi colada no prontuário). Complete o cadastro para fechar o rastro: AGHU, NF e tipo de entrada.</p>
+  </div>
+  <div class="acoes"><a class="botao secundario" href="/almoxarifado">Voltar</a></div>
+</div>
+
+<div class="cartao">
+  <h2>Aguardando regularização ({{ pendentes|length }})</h2>
+  {% for r in pendentes %}
+  <form method="post" action="/almoxarifado/nao-cadastrados/{{ r.id }}/regularizar"
+        style="border-top:1px solid var(--borda);padding:.9rem 0">
+    <p style="margin:0 0 .4rem"><strong>{{ r.xProd }}</strong> · lote <span class="mono">{{ r.nLote }}</span>
+      · val. {{ r.dVal|data_br }} · {{ r.fornecedor }}{% if r.marca_fabricante %} / {{ r.marca_fabricante }}{% endif %}
+      <br><span class="pequeno suave">Prontuário <strong>{{ r.prontuario }}</strong>{% if r.paciente %} · {{ r.paciente }}{% endif %}
+      · {{ rotulo_unidade(r.unidade) }} sala {{ r.sala }} · registrado em {{ r.registrado_em|data_hora_br }} por {{ r.registrado_por }},
+      autorizado por {{ r.autorizado_por }} · motivo: {{ r.motivo }}{% if r.detalhe %} ({{ r.detalhe }}){% endif %}</span></p>
+    <div class="grade grade-3">
+      <div class="campo"><label class="obrigatorio">Código AGHU</label>
+        <input type="text" name="codigo_aghu" required value="{{ r.codigo_aghu or '' }}"></div>
+      <div class="campo"><label>Código de barras</label>
+        <input type="text" name="codigo_barras" value="{{ r.codigo_barras or '' }}"></div>
+      <div class="campo"><label>Nº da NF</label>
+        <input type="text" name="numero_nf" value="{{ r.numero_nf or '' }}"></div>
+      <div class="campo"><label>Tipo de entrada</label>
+        <select name="tipo_entrada">
+          {% for chave, rotulo in tipos.items() %}<option value="{{ chave }}" {{ 'selected' if chave == (r.tipo_entrada or 'consignado') }}>{{ rotulo }}</option>{% endfor %}
+        </select></div>
+      <div class="campo"><label>Valor unitário</label>
+        <input type="text" name="vUnCom" value="{{ r.vUnCom or '' }}" placeholder="0,00"></div>
+      <div class="campo"><label>Observação</label>
+        <input type="text" name="observacao" placeholder="ex.: NF chegou depois"></div>
+    </div>
+    <button class="botao">Regularizar</button>
+  </form>
+  {% else %}
+    <p class="vazio">Nada aguardando regularização.</p>
+  {% endfor %}
+</div>
+
+{% if regularizados %}
+<div class="cartao">
+  <h2>Regularizados recentemente</h2>
+  <div class="tabela-rolagem"><table>
+    <thead><tr><th>Material</th><th>AGHU</th><th>Lote</th><th>Prontuário</th><th>Regularizado</th></tr></thead>
+    <tbody>
+      {% for r in regularizados %}
+      <tr><td>{{ r.xProd }}</td><td class="mono pequeno">{{ r.codigo_aghu }}</td><td class="mono">{{ r.nLote }}</td>
+        <td>{{ r.prontuario }}</td><td class="pequeno">{{ r.regularizado_em|data_hora_br }} · {{ r.regularizado_por }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table></div>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block titulo %}Meu perfil · {{ APP_TITLE }}{% endblock %}
+
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <div>
+    <h1>{{ perfil.nome }}</h1>
+    <p>{{ rotulo_papel(perfil.papel) }}{% if perfil.setor %} · {{ perfil.setor }}{% endif %}</p>
+  </div>
+  <div class="acoes"><a class="botao secundario" href="/">Voltar</a></div>
+</div>
+
+<div class="cartao" style="max-width:520px">
+  <h2>Alterar minha senha</h2>
+  <form method="post" action="/minha-senha">
+    <div class="campo"><label class="obrigatorio">Senha atual</label>
+      <input type="password" name="senha_atual" required autocomplete="current-password"></div>
+    <div class="campo"><label class="obrigatorio">Nova senha</label>
+      <input type="password" name="nova_senha" required autocomplete="new-password">
+      <div class="dica">Mínimo de 8 caracteres, com letras e números.</div></div>
+    <div class="campo"><label class="obrigatorio">Confirmar nova senha</label>
+      <input type="password" name="confirmar" required autocomplete="new-password"></div>
+    <button class="botao">Alterar senha</button>
+  </form>
+</div>
+
+<div class="cartao" style="max-width:520px">
+  <h2>Meu acesso</h2>
+  <table>
+    <tr><th>Usuário</th><td class="mono">{{ perfil.username }}</td></tr>
+    <tr><th>Perfil</th><td>{{ rotulo_papel(perfil.papel) }}</td></tr>
+    <tr><th>Módulos liberados</th><td>{% for m in modulos %}{{ MODULOS[m] }}{{ ", " if not loop.last }}{% endfor %}</td></tr>
+  </table>
+</div>
+{% endblock %}

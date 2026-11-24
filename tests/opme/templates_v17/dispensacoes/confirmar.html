@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+{% block titulo %}Dispensação · {{ APP_TITLE }}{% endblock %}
+
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <div>
+    <h1>{% if finalizada %}Dispensa finalizada{% elif disp.status == 'confirmada' %}Recebimento confirmado{% elif disp.status == 'cancelada' %}Procedimento cancelado — material devolvido à farmácia{% else %}Confirmar recebimento na sala{% endif %}</h1>
+    <p><strong>{{ descricao }}</strong>{% if disp.paciente %} · {{ disp.paciente }}{% endif %}</p>
+    <p class="pequeno">Dispensado pela farmácia ({{ disp.criado_por }}) em {{ disp.criado_em|data_hora_br }}
+      {% if disp.status == 'confirmada' %} · recebido na sala por <span class="etiqueta verde">{{ disp.recebido_por }}</span>
+        em {{ disp.confirmada_em|data_hora_br }}{% endif %}</p>
+  </div>
+  <div class="acoes">
+    <a class="botao" href="/dispensacoes/{{ disp.id_dispensacao }}/pdf">Baixar PDF para a sala</a>
+    {% if finalizada %}<a class="botao secundario" href="/farmacia/atendimentos">Dispensar outro paciente</a>{% endif %}
+    <a class="botao secundario" href="{{ voltar }}">{{ 'Voltar à dispensação' if finalizada else 'Voltar' }}</a>
+  </div>
+</div>
+
+{% set conferir_sala = (not finalizada) and disp.status == 'pendente' and disp.pendentes %}
+{% if conferir_sala %}
+<form method="post" action="/dispensacoes/{{ disp.id_dispensacao }}/confirmar" class="cartao" id="form-receb"
+      data-identificar="/dispensacoes/{{ disp.id_dispensacao }}/identificar">
+  <h2>1. Confira o material ({{ disp.pendentes|length }})</h2>
+  <div style="display:flex;gap:1.2rem;flex-wrap:wrap;margin:.3rem 0 .6rem">
+    <label style="display:flex;gap:.4rem;align-items:center;font-weight:600">
+      <input type="radio" name="modo" value="lista" checked style="width:auto"> Conferir pela lista</label>
+    <label style="display:flex;gap:.4rem;align-items:center;font-weight:600">
+      <input type="radio" name="modo" value="bipando" style="width:auto"> Conferir bipando o material</label>
+  </div>
+  <p class="pequeno suave" id="ajuda-lista">Tudo vem marcado. <strong>Desmarque o que não chegou</strong> — volta ao estoque
+    da farmácia, com o registro de que a sala não recebeu.</p>
+  <div id="bloco-bip" hidden>
+    <p class="pequeno suave">Bipe cada material que chegou. Caixa de consignado: bipe o código da <strong>caixa</strong> — marca a caixa inteira.
+      O que <strong>não</strong> for bipado volta ao estoque da farmácia, com o registro de que a sala não recebeu.</p>
+    <label for="bip-receb">Bipe o código de barras</label>
+    <input type="text" id="bip-receb" autocomplete="off" placeholder="aguardando leitura…"
+           style="font-size:1.4rem;padding:.7rem;text-align:center">
+    <div style="display:flex;gap:1rem;align-items:center;margin:.5rem 0 .8rem;flex-wrap:wrap">
+      <span class="etiqueta azul" style="font-size:1rem"><span id="bip-contagem">0</span> de {{ disp.pendentes|length }} item(ns) bipado(s)</span>
+      <span class="pequeno" id="bip-resultado"></span>
+    </div>
+  </div>
+  <div class="tabela-rolagem"><table>
+    <thead><tr><th>Recebido?</th><th>Material</th><th>AGHU</th><th>Lote</th><th>Validade</th><th>Caixa</th></tr></thead>
+    <tbody>
+      {# Caixa de consignado: uma linha só — a sala confere a CAIXA, não cada item. #}
+      {% for grupo in disp.pendentes|selectattr('id_caixa')|groupby('id_caixa') %}
+      <tr data-item="caixa">
+        <td><input type="checkbox" name="recebido" value="{{ grupo.list|map(attribute='id_item')|join(',') }}" checked style="width:1.4rem;height:1.4rem">
+            <span class="etiqueta verde marca-bip" style="display:none">✔ bipada</span><span class="etiqueta cinza marca-falta" style="display:none">não bipada</span></td>
+        <td colspan="4"><strong>Caixa {{ grupo.grouper }}</strong> — {{ grupo.list|length }} item(ns)
+          <details class="pequeno"><summary style="cursor:pointer">ver os itens</summary>
+            {% for i in grupo.list %}<div>{{ i.descritivo_hospital or i.xProd }} · AGHU {{ i.codigo_aghu or '—' }} · lote {{ i.nLote or '—' }} · val. {{ i.dVal|data_br or '—' }}</div>{% endfor %}
+          </details></td>
+        <td class="mono pequeno">{{ grupo.grouper }}</td>
+      </tr>
+      {% endfor %}
+      {% for i in disp.pendentes if not i.id_caixa %}
+      <tr data-item="{{ i.id_item }}">
+        <td><input type="checkbox" name="recebido" value="{{ i.id_item }}" checked style="width:1.4rem;height:1.4rem">
+            <span class="etiqueta verde marca-bip" style="display:none">✔ bipado</span><span class="etiqueta cinza marca-falta" style="display:none">não bipado</span></td>
+        <td>{{ i.descritivo_hospital or i.xProd }}</td>
+        <td class="mono pequeno">{{ i.codigo_aghu or '—' }}</td>
+        <td class="mono">{{ i.nLote or '—' }}</td>
+        <td class="pequeno">{{ i.dVal|data_br or '—' }}</td>
+        <td class="mono pequeno">—</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table></div>
+  <div id="bipados-campos"></div>
+  <h2 style="margin-top:1.2rem">2. Dar ciência</h2>
+  {% if pode_dar_ciencia %}
+    <p class="pequeno">Fica registrado em nome de <strong>{{ nome_logado }}</strong> (usuário logado).</p>
+    <button class="botao">Dar ciência do recebimento</button>
+  {% else %}
+    <p class="aviso alerta" style="margin:0">Quem dá ciência é a sala de procedimento. Entre com o usuário da sala
+      para confirmar o recebimento.</p>
+  {% endif %}
+</form>
+<script>
+(function () {
+  var form = document.getElementById("form-receb"), campo = document.getElementById("bip-receb");
+  var bloco = document.getElementById("bloco-bip"), ajuda = document.getElementById("ajuda-lista");
+  var contagem = document.getElementById("bip-contagem"), resultado = document.getElementById("bip-resultado");
+  var campos = document.getElementById("bipados-campos"), caixas = form.querySelectorAll('input[name="recebido"]');
+  var bipados = {};
+  function modo() { return form.querySelector('input[name="modo"]:checked').value; }
+  function atualizar() {
+    var b = modo() === "bipando";
+    bloco.hidden = !b; ajuda.hidden = b;
+    caixas.forEach(function (c) {
+      var ok = c.value.split(",").every(function (id) { return !!bipados[id]; });
+      c.style.display = b ? "none" : "";
+      c.parentElement.querySelector(".marca-bip").style.display = (b && ok) ? "" : "none";
+      c.parentElement.querySelector(".marca-falta").style.display = (b && !ok) ? "" : "none";
+      c.closest("tr").style.background = (b && ok) ? "var(--verde-claro)" : "";
+    });
+    contagem.textContent = Object.keys(bipados).length;
+    campos.innerHTML = Object.keys(bipados).map(function (id) { return '<input type="hidden" name="bipado" value="' + id + '">'; }).join("");
+    if (b) campo.focus();
+  }
+  form.querySelectorAll('input[name="modo"]').forEach(function (r) { r.addEventListener("change", atualizar); });
+  campo.addEventListener("keydown", function (e) {
+    if (e.key !== "Enter") return; e.preventDefault();
+    var codigo = campo.value.trim(); campo.value = ""; if (!codigo) return;
+    fetch(form.dataset.identificar + "?codigo=" + encodeURIComponent(codigo)).then(function (r) { return r.json(); })
+      .then(function (d) {
+        var ids = d.ok ? d.itens.map(String) : [];
+        var novos = d.caixa ? ids.filter(function (id) { return !bipados[id]; })
+                            : ids.filter(function (id) { return !bipados[id]; }).slice(0, 1);
+        if (novos.length) { novos.forEach(function (id) { bipados[id] = true; });
+          resultado.style.color = "var(--verde)"; resultado.textContent = "✔ " + codigo + " — recebido" + (novos.length > 1 ? " (" + novos.length + " itens da caixa)." : "."); }
+        else { resultado.style.color = "var(--vermelho)"; resultado.textContent = d.ok ? ("✖ " + codigo + " — já bipado.") : ("✖ " + d.mensagem); }
+        atualizar();
+      }).catch(function () { resultado.textContent = "Falha de conexão — bipe de novo."; });
+  });
+  form.addEventListener("submit", function (e) {
+    var b = modo() === "bipando";
+    var recebidos = Array.prototype.filter.call(caixas, function (c) {
+      return b ? c.value.split(",").every(function (id) { return !!bipados[id]; }) : c.checked; }).length;
+    var faltam = caixas.length - recebidos;
+    if (recebidos === 0) { e.preventDefault(); alert("Nenhum item " + (b ? "bipado" : "marcado") + ". Marque o que chegou."); return; }
+    if (faltam > 0 && !confirm(faltam + " item(ns) " + (b ? "não foram bipados" : "foram desmarcados") +
+        " e voltarão ao estoque da farmácia como NÃO recebidos pela sala. Confirmar assim mesmo?")) e.preventDefault();
+  });
+})();
+</script>
+{% if cancelar_sala %}
+  {% set cancelar_acao = "/sala-procedimento/atendimento/" ~ disp.id_atendimento ~ "/cancelar" %}
+  {% set cancelar_dispensados = cancelar_sala %}
+  <p class="pequeno" style="margin:1rem 0 0"><strong>Ou:</strong> o procedimento não vai acontecer? Em vez de confirmar
+    o recebimento, cancele — todo o material volta para a farmácia.</p>
+  {% include "_cancelar_procedimento.html" %}
+{% endif %}
+{% else %}
+<div class="cartao">
+  <h2>Material dispensado ({{ disp.itens|length }})</h2>
+  <div class="tabela-rolagem"><table>
+    <thead><tr><th>Material</th><th>AGHU</th><th>Lote</th><th>Validade</th><th>Caixa</th><th>Situação</th></tr></thead>
+    <tbody>
+      {% for i in disp.itens %}
+      <tr>
+        <td>{{ i.descritivo_hospital or i.xProd }}</td>
+        <td class="mono pequeno">{{ i.codigo_aghu or '—' }}</td>
+        <td class="mono">{{ i.nLote or '—' }}</td>
+        <td class="pequeno">{{ i.dVal|data_br or '—' }}</td>
+        <td class="mono pequeno">{{ i.id_caixa or '—' }}</td>
+        <td>{% if i.situacao == 'pendente' %}<span class="etiqueta amarelo">aguardando a sala</span>
+            {% elif i.situacao == 'cancelado' %}<span class="etiqueta cinza">voltou à farmácia (cancelado)</span>
+            {% elif i.situacao == 'nao_recebido' %}<span class="etiqueta vermelho">sala não recebeu — voltou à farmácia</span>
+            {% else %}<span class="etiqueta verde">recebido</span>{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table></div>
+</div>
+
+{% if finalizada %}
+<div class="aviso {{ 'sucesso' if disp.status == 'confirmada' else 'info' }}">
+  {% if disp.status == 'confirmada' %}A sala já confirmou o recebimento.
+  {% else %}O material saiu da farmácia. Agora o operador da sala confirma o recebimento com a
+  própria senha, na tela da Sala de procedimento — sem bipar de novo.{% endif %}
+</div>
+{% endif %}
+{% endif %}
+{% endblock %}

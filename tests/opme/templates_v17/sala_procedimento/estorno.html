@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block titulo %}Estornar uso · {{ APP_TITLE }}{% endblock %}
+
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <div>
+    <h1>Estornar uso registrado</h1>
+    <p>Para quando um implante foi bipado no paciente errado, em duplicidade,
+       ou o material acabou não sendo utilizado.</p>
+  </div>
+  <div class="acoes"><a class="botao secundario" href="/sala-procedimento">Voltar</a></div>
+</div>
+
+<div class="aviso info">
+  <strong>Nada é apagado.</strong> O registro original continua no histórico do item, marcado
+  como estornado, com o motivo e o nome de quem estornou. É assim que precisa ser: em
+  rastreabilidade de implante, apagar registro é pior do que o erro que se quer corrigir.
+</div>
+
+<form method="get" class="cartao">
+  <div class="filtros">
+    <div class="campo" style="flex:1">
+      <label>Prontuário</label>
+      <input type="text" name="prontuario" value="{{ prontuario }}" inputmode="numeric" autofocus
+             placeholder="deixe em branco para ver os usos dos últimos 30 dias">
+    </div>
+    <button class="botao">Buscar</button>
+  </div>
+</form>
+
+<div class="cartao">
+  <h2>
+    {% if prontuario %}Implantes do prontuário {{ prontuario }}
+    {% else %}Implantes registrados nos últimos 30 dias{% endif %}
+    ({{ usos|length }})
+  </h2>
+
+  {% if usos %}
+    {% for u in usos %}
+      <details style="border-bottom:1px solid var(--borda);padding:.75rem 0">
+        <summary style="cursor:pointer">
+          <strong>{{ u.xProd }}</strong>
+          <span class="suave pequeno">
+            lote {{ u.nLote or '—' }} · val. {{ u.dVal|data_br or '—' }}
+            {% if u.numero_serie %} · série {{ u.numero_serie }}{% endif %}
+          </span><br>
+          <span class="pequeno">
+            Prontuário <strong>{{ u.prontuario or '—' }}</strong> ·
+            sala {{ u.sala or '—' }} ·
+            {{ u.especialidade|especialidade if u.especialidade else '—' }} ·
+            registrado em {{ u.data_evento|data_hora_br }} por {{ u.usuario or '—' }}
+          </span>
+        </summary>
+
+        <form method="post" action="/sala-procedimento/estorno/{{ u.id_unidade }}"
+              style="margin-top:.9rem;padding-left:1rem;border-left:3px solid var(--vermelho)"
+              data-confirmar="Confirma o estorno deste implante? A ação fica registrada na auditoria.">
+          <input type="hidden" name="prontuario" value="{{ prontuario }}">
+
+          <div class="grade grade-2">
+            <div class="campo">
+              <label class="obrigatorio">Para onde vai o material?</label>
+              <select name="destino">
+                {% for codigo, texto_destino in destinos.items() %}
+                  <option value="{{ codigo }}">{{ texto_destino }}</option>
+                {% endfor %}
+              </select>
+              <div class="dica">
+                Se voltar para a sala, continua vinculado a este paciente e pode ser bipado
+                de novo. Nas outras opções, o vínculo com o paciente é desfeito.
+              </div>
+            </div>
+            <div class="campo">
+              <label class="obrigatorio">Motivo do estorno</label>
+              <input type="text" name="motivo" required minlength="10"
+                     placeholder="Ex.: bipado no prontuário errado, o correto é 123456">
+              <div class="dica">Mínimo de 10 caracteres. Será lido em auditoria.</div>
+            </div>
+          </div>
+
+          <div class="linha-botoes">
+            <button class="botao perigo">Estornar este uso</button>
+            <a class="botao secundario" href="/consultas/item/{{ u.id_unidade }}">Ver histórico</a>
+          </div>
+        </form>
+      </details>
+    {% endfor %}
+  {% else %}
+    <p class="vazio">
+      {% if prontuario %}Nenhum implante registrado para este prontuário.
+      {% else %}Nenhum uso registrado nos últimos 30 dias. Busque pelo prontuário para
+                ver registros mais antigos.{% endif %}
+    </p>
+  {% endif %}
+</div>
+
+{% if recentes %}
+<div class="cartao">
+  <h2>Estornos recentes</h2>
+  <p class="suave pequeno">Volume alto aqui costuma indicar bipagem apressada na sala.</p>
+  <div class="tabela-rolagem">
+    <table>
+      <thead><tr><th>Quando</th><th>Item</th><th>Prontuário</th>
+                 <th>Destino</th><th>Motivo</th><th>Quem</th></tr></thead>
+      <tbody>
+        {% for r in recentes %}
+          <tr>
+            <td class="pequeno">{{ r.data_evento|data_hora_br }}</td>
+            <td><a href="/consultas/item/{{ r.id_unidade }}">{{ r.xProd or r.id_unidade }}</a>
+                <span class="suave pequeno">lote {{ r.nLote or '—' }}</span></td>
+            <td>{{ r.prontuario or '—' }}</td>
+            <td><span class="etiqueta {{ cor_status(r.status_novo) }}">{{ rotulo_status(r.status_novo) }}</span></td>
+            <td class="pequeno">{{ r.motivo }}</td>
+            <td class="pequeno">{{ r.usuario }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

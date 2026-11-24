@@ -1,0 +1,44 @@
+ROBÔ — NOTA DE RECEBIMENTO SEM AF E NOTA DE CONSUMO NO AGHU (ligado ao TraceOPME)
+==================================================================================
+
+O mesmo robô faz duas coisas:
+  - NF de entrada: botão "Lançar no AGHU agora" na tela da NF (almoxarifado).
+  - Nota de consumo do paciente: Farmácia → Nota de consumo e RM → "Lançar no AGHU" (Nota
+    de consumo). Você abre a cirurgia no AGHU (Materiais Consumidos); ele inclui material e
+    quantidade e para antes de gravar.
+  - Requisição de material (RM): mesma tela → "Lançar no AGHU" (RM). Você abre a RM, preenche
+    o cabeçalho e vincula o paciente; ele inclui os materiais. Depois de você Confirmar e
+    Acessar a Efetivação, ele marca o LOTE usado e a quantidade. Quem efetiva é você.
+
+ONDE INSTALAR
+- No computador de QUEM LANÇA a nota no AGHU (não no servidor do TraceOPME).
+- Precisa do Python instalado nesse computador e do Edge (já vem no Windows).
+
+INSTALAR (uma vez em cada computador)
+1. No TraceOPME, abra uma NF → cartão "Lançar no AGHU" → "Baixar o instalador do robô"
+   (ou Farmácia → Nota de consumo → "Baixar o instalador do robô"). Quem já tinha o robô
+   da NF instala de novo uma vez para ganhar a nota de consumo.
+2. Extraia o zip numa pasta fixa deste computador (ex.: Documentos\robo_nota_aghu).
+3. Dê dois cliques em instalar.bat e espere aparecer "Pronto!".
+   SE O WINDOWS BLOQUEAR O .BAT ("Controle de Aplicativo Inteligente"):
+     a) Clique na barra de endereço desta pasta (no Explorador), digite  cmd  e ENTER.
+     b) Na janela preta, digite  py instalar.py  e ENTER. Espere o "Pronto!".
+   Se mudar a pasta de lugar depois, instale de novo.
+
+USAR
+1. No TraceOPME, termine a entrada da NF. O sistema leva ao cartão "Lançar no AGHU".
+2. Clique em "Lançar no AGHU agora". Na primeira vez o navegador pergunta se pode abrir
+   o robô: marque "Sempre permitir" e clique em Abrir.
+3. Abre a janela preta do robô, que baixa a planilha da NF do TraceOPME e mostra o resumo.
+4. No navegador que ele abrir: faça o login no AGHU, abra Estoque → Gerar Nota de
+   Recebimento sem AF e escolha a NF (cadastrada à mão antes). Volte à janela preta e ENTER.
+5. O robô inclui cada material UMA vez (marca do TraceOPME, quantidade, unidade UN, valor;
+   almoxarifado em branco) e todos os lotes com validade. Se algo não bater, ele PARA e pergunta.
+6. Confira e GRAVE no AGHU. O robô pergunta se gravou e o nº da nota de recebimento,
+   e avisa o TraceOPME, que marca a NF como "lançada no AGHU".
+
+O robô não guarda nem digita senha. Cada execução salva um log na pasta "logs".
+
+SEM O TRACEOPME (planilha baixada à mão)
+- Arraste a planilha "NF_xxx_entrada_AGHU.xlsx" em cima do rodar.bat.
+- Endereço do AGHU e navegador ficam no config.ini (usado só nesse modo).

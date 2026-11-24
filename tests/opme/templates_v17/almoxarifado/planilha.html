@@ -1,0 +1,221 @@
+{% extends "base.html" %}
+{% block titulo %}Planilha de lotes do AGHU · {{ APP_TITLE }}{% endblock %}
+
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <div>
+    <h1>Planilha de lotes do AGHU</h1>
+    <p>Importe a planilha e bipe o material. Cada item só entra no estoque quando for bipado.</p>
+  </div>
+  <div class="acoes"><a class="botao secundario" href="/almoxarifado">Voltar</a></div>
+</div>
+
+<div class="grade grade-2">
+  <form method="post" action="/almoxarifado/planilha" enctype="multipart/form-data" class="cartao">
+    <h2>Importar planilha</h2>
+    <p class="pequeno suave">Colunas: cod_material, material, marca_comercial, lote, serie, data_validade,
+      qtde_disponivel_lote (CSV separado por ponto e vírgula, como sai do AGHU). Descrição = material;
+      fornecedor = marca comercial. Reimportar a mesma planilha não duplica.</p>
+    <input type="file" name="arquivo" accept=".csv,.txt,.xlsx" required>
+    <button class="botao" style="margin-top:.6rem">Importar</button>
+  </form>
+  <div class="cartao">
+    <h2>Pendente de bipar</h2>
+    <div class="numero" style="font-size:2rem;font-weight:700">{{ total_pendente }}</div>
+    <p class="rotulo">unidade(s) em {{ itens|length }} lote(s)</p>
+    {% if cargas %}
+    <details style="margin-top:.4rem"><summary class="pequeno" style="cursor:pointer">Planilhas importadas ({{ cargas|length }})</summary>
+      <ul class="pequeno" style="margin:.4rem 0 0 1rem">
+        {% for c in cargas %}<li>{{ c.criado_em|data_hora_br }} · {{ c.arquivo or 'planilha' }} · {{ c.linhas }} lote(s), {{ c.unidades }} unid. ·
+          <strong>{{ c.pendentes }}</strong> pendente(s) · {{ c.criado_por }}</li>{% endfor %}
+      </ul>
+    </details>
+    {% endif %}
+  </div>
+</div>
+
+{% if itens %}
+<div class="cartao">
+  <h2>Dar entrada: escolha o material e bipe</h2>
+  <p class="pequeno suave" style="margin-top:0">1. Encontre o material na lista · 2. clique em <strong>Bipar</strong> ·
+    3. informe a quantidade e bipe o código de barras da embalagem. Só entra no estoque o que for bipado.</p>
+  <div style="display:flex;gap:.8rem;align-items:flex-end;flex-wrap:wrap;margin-bottom:.6rem">
+    <div class="campo" style="margin:0;flex:1 1 24rem">
+      <label for="filtro-planilha">Buscar material (AGHU, descrição, lote ou marca)</label>
+      <input type="search" id="filtro-planilha" autocomplete="off" placeholder="ex.: 97941 · shaver · razek"
+             style="width:100%;font-size:1.05rem;padding:.6rem .7rem">
+    </div>
+    <span class="pequeno suave" id="filtro-contagem"></span>
+  </div>
+  <div class="tabela-rolagem">
+  <table id="tabela-planilha">
+    <thead><tr><th>AGHU</th><th>Material</th><th>Marca</th><th>Lote</th><th>Validade</th>
+      <th class="num">Pendente</th><th></th></tr></thead>
+    <tbody>
+      {% for i in itens %}
+      <tr data-item="{{ i.id_item }}" data-busca="{{ i.codigo_aghu }} {{ i.material }} {{ i.marca }} {{ i.lote }} {{ i.codigo_barras or '' }}"
+          data-aghu="{{ i.codigo_aghu }}" data-material="{{ i.material }}" data-marca="{{ i.marca or '—' }}"
+          data-lote="{{ i.lote or '—' }}" data-validade="{{ i.validade }}" data-codigo="{{ i.codigo_barras or '' }}">
+        <td class="mono pequeno">{{ i.codigo_aghu }}</td>
+        <td class="pequeno">{{ i.material }}{% if i.codigo_barras %}<br><span class="suave mono">cód. {{ i.codigo_barras }}</span>{% endif %}</td>
+        <td class="pequeno">{{ i.marca or '—' }}</td>
+        <td class="mono pequeno">{{ i.lote or '—' }}</td>
+        <td class="pequeno">{{ i.validade }}</td>
+        <td class="num"><strong class="pendente">{{ i.qtd_pendente }}</strong><span class="suave"> / {{ i.qtd_total }}</span></td>
+        <td style="white-space:nowrap;text-align:right">
+          <button type="button" class="botao pequeno" data-bipar="{{ i.id_item }}">Bipar</button>
+          <details style="display:inline-block;text-align:left"><summary class="pequeno" style="cursor:pointer">mais</summary>
+            <form method="post" action="/almoxarifado/planilha/{{ i.id_item }}/sem-codigo" style="margin:.4rem 0;display:flex;gap:.3rem;align-items:center">
+              <input type="number" name="quantidade" min="1" max="{{ i.qtd_pendente }}" value="{{ i.qtd_pendente }}" style="width:5rem">
+              <select name="tipo_entrada" style="width:auto">{% for chave, rotulo in tipos.items() %}<option value="{{ chave }}" {% if chave == 'aquisicao_propria' %}selected{% endif %}>{{ rotulo }}</option>{% endfor %}</select>
+              <button class="botao secundario pequeno">sem código de barras → etiqueta</button>
+            </form>
+            <form method="post" action="/almoxarifado/planilha/{{ i.id_item }}/retirar" style="display:flex;gap:.3rem;align-items:center">
+              <input type="text" name="motivo" required minlength="3" placeholder="motivo" style="width:11rem">
+              <button class="botao secundario pequeno">retirar da lista</button>
+            </form>
+          </details>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<template id="modelo-painel">
+  <tr class="painel-bip"><td colspan="7" style="background:var(--azul-claro, #e8f1fb);border-left:5px solid var(--azul, #0c3a67);padding:1rem">
+    <div style="font-size:.85rem;font-weight:700;letter-spacing:.04em;color:var(--azul, #0c3a67)">MATERIAL ESCOLHIDO</div>
+    <div class="pb-titulo" style="font-size:1.15rem;font-weight:700;margin:.15rem 0"></div>
+    <div class="pb-detalhe pequeno" style="margin-bottom:.7rem"></div>
+    <div style="display:flex;gap:.8rem;align-items:flex-end;flex-wrap:wrap">
+      <div class="campo" style="margin:0;flex:0 0 9rem">
+        <label>Quantidade</label>
+        <input type="number" class="pb-qtd" min="1" value="1" style="font-size:1.3rem;padding:.6rem">
+      </div>
+      <div class="campo" style="margin:0;flex:0 0 13rem">
+        <label>Classificação <span class="opcional">(padrão: aquisição própria)</span></label>
+        <select class="pb-tipo" style="font-size:1.05rem;padding:.6rem">
+          {% for chave, rotulo in tipos.items() %}<option value="{{ chave }}" {% if chave == 'aquisicao_propria' %}selected{% endif %}>{{ rotulo }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="campo" style="margin:0;flex:1 1 20rem">
+        <label>Bipe o código de barras da embalagem</label>
+        <input type="text" class="pb-codigo" autocomplete="off" placeholder="aguardando leitura…"
+               style="font-size:1.3rem;padding:.6rem;text-align:center">
+      </div>
+      <button type="button" class="botao secundario pb-sem-codigo" title="Gera o código interno (AGHU + lote) e abre a etiqueta">Sem código de barras: gerar</button>
+      <button type="button" class="botao secundario pb-fechar">Fechar</button>
+    </div>
+    <div class="pb-resultado pequeno" style="margin-top:.6rem;font-weight:600"></div>
+  </td></tr>
+</template>
+{% else %}
+  <div class="cartao"><p class="vazio">Nenhum item pendente. Importe uma planilha para começar.</p></div>
+{% endif %}
+
+<script>
+(function () {
+  var tabela = document.getElementById("tabela-planilha");
+  if (!tabela) return;
+  var filtro = document.getElementById("filtro-planilha");
+  var contagem = document.getElementById("filtro-contagem");
+  var modelo = document.getElementById("modelo-painel");
+  var linhas = Array.prototype.slice.call(tabela.querySelectorAll("tbody tr[data-item]"));
+  var aberto = null;   // {tr, painel}
+
+  function esc(t) { var d = document.createElement("div"); d.textContent = t == null ? "" : String(t); return d.innerHTML; }
+  function norm(t) {
+    return (t || "").toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase()
+      .replace(/[.,;:()\/\-]+/g, " ").replace(/\s+/g, " ").trim();
+  }
+  function filtrar() {
+    var termos = norm(filtro.value).split(" ").filter(Boolean), n = 0;
+    linhas.forEach(function (tr) {
+      var ok = termos.every(function (t) { return norm(tr.dataset.busca).indexOf(t) >= 0; });
+      tr.hidden = !ok || tr.dataset.concluido === "1"; if (!tr.hidden) n++;
+      if (aberto && aberto.tr === tr) aberto.painel.hidden = tr.hidden;
+    });
+    contagem.textContent = termos.length ? n + " lote(s) encontrado(s)" : "";
+  }
+  filtro.addEventListener("input", filtrar);
+  filtro.addEventListener("keydown", function (e) { if (e.key === "Enter") e.preventDefault(); });
+  function som(f) {
+    try { var c = new (window.AudioContext || window.webkitAudioContext)(), o = c.createOscillator();
+      o.frequency.value = f; o.connect(c.destination); o.start(); o.stop(c.currentTime + 0.12); } catch (e) {}
+  }
+  function fechar() {
+    if (!aberto) return;
+    aberto.tr.style.outline = ""; aberto.painel.remove(); aberto = null;
+  }
+  function abrir(tr) {
+    fechar();
+    var painel = modelo.content.firstElementChild.cloneNode(true);
+    tr.after(painel);
+    tr.style.outline = "3px solid var(--azul, #0c3a67)";
+    aberto = { tr: tr, painel: painel };
+    var pend = Number(tr.querySelector(".pendente").textContent);
+    painel.querySelector(".pb-titulo").textContent = tr.dataset.material;
+    painel.querySelector(".pb-detalhe").innerHTML = "AGHU <strong>" + esc(tr.dataset.aghu) + "</strong> · marca <strong>" +
+      esc(tr.dataset.marca) + "</strong> · lote <strong>" + esc(tr.dataset.lote) + "</strong> · validade <strong>" +
+      esc(tr.dataset.validade) + "</strong> · pendente <strong class='pb-pend'>" + pend + "</strong>" +
+      (tr.dataset.codigo ? " · código já conhecido <span class='mono'>" + esc(tr.dataset.codigo) + "</span>" : "");
+    var qtd = painel.querySelector(".pb-qtd"), cod = painel.querySelector(".pb-codigo");
+    qtd.max = pend;
+    painel.querySelector(".pb-fechar").onclick = function () { fechar(); filtro.focus(); };
+    painel.querySelector(".pb-sem-codigo").onclick = function () {
+      var n = Number(qtd.value) || 1;
+      if (!confirm("Gerar o código interno e dar entrada em " + n + " unidade(s) deste lote? Em seguida abre a etiqueta para imprimir.")) return;
+      var f = document.createElement("form");
+      f.method = "post"; f.action = "/almoxarifado/planilha/" + tr.dataset.item + "/sem-codigo";
+      [["quantidade", n], ["tipo_entrada", painel.querySelector(".pb-tipo").value]].forEach(function (p) {
+        var i = document.createElement("input"); i.type = "hidden"; i.name = p[0]; i.value = p[1]; f.appendChild(i);
+      });
+      document.body.appendChild(f); f.submit();
+    };
+    qtd.addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); cod.focus(); } });
+    cod.addEventListener("keydown", function (e) {
+      if (e.key !== "Enter") return;
+      e.preventDefault();
+      var c = cod.value.trim(); cod.value = "";
+      if (c) enviar(tr, painel, c, Number(qtd.value) || 1);
+    });
+    cod.focus();
+  }
+  function enviar(tr, painel, codigo, quantidade) {
+    var res = painel.querySelector(".pb-resultado"), qtd = painel.querySelector(".pb-qtd");
+    fetch("/almoxarifado/planilha/bipar", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ codigo: codigo, id_item: tr.dataset.item, quantidade: quantidade,
+                             tipo_entrada: painel.querySelector(".pb-tipo").value })
+    }).then(function (r) { return r.json(); }).then(function (d) {
+      if (d.ok) {
+        som(880);
+        res.style.color = "var(--verde)";
+        res.innerHTML = "✔ " + esc(d.mensagem) + (d.alertas && d.alertas.length ?
+          '<br><span style="color:var(--amarelo)">⚠ ' + d.alertas.map(esc).join("<br>⚠ ") + "</span>" : "");
+        tr.querySelector(".pendente").textContent = d.restante;
+        tr.dataset.codigo = tr.dataset.codigo || codigo;
+        var p = painel.querySelector(".pb-pend"); if (p) p.textContent = d.restante;
+        qtd.value = 1; qtd.max = d.restante;
+        if (d.restante <= 0) {
+          tr.dataset.concluido = "1";
+          setTimeout(function () { fechar(); tr.hidden = true; filtro.focus(); }, 1500);
+        }
+      } else {
+        som(200);
+        res.style.color = "var(--vermelho)";
+        res.textContent = "✖ " + d.mensagem;
+      }
+    }).catch(function () { res.textContent = "Falha de conexão — bipe de novo."; })
+      .finally(function () { var c = painel.querySelector(".pb-codigo"); if (c && document.body.contains(c)) c.focus(); });
+  }
+  tabela.addEventListener("click", function (e) {
+    var b = e.target.closest("[data-bipar]");
+    if (!b) return;
+    abrir(b.closest("tr"));
+  });
+  filtro.focus();
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block titulo %}{{ item.xProd }} · {{ APP_TITLE }}{% endblock %}
+
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <div>
+    <h1>{{ item.xProd }}</h1>
+    {% if descritivo_hc %}
+      <div class="descritivo-hc" style="max-width:60rem;margin-bottom:.5rem">
+        <span class="rotulo-hc">HC -</span>{{ descritivo_hc }}
+      </div>
+    {% endif %}
+    <p class="mono pequeno">{{ item.id_unidade }}</p>
+    <span class="etiqueta {{ cor_status(item.status) }}">{{ rotulo_status(item.status) }}</span>
+    <span class="suave pequeno">· {{ local_status(item.status) }}</span>
+  </div>
+  <div class="acoes"><a class="botao secundario" href="/consultas/itens">Voltar</a></div>
+</div>
+
+{% for alerta in alertas %}
+  <div class="aviso alerta">{{ alerta }}</div>
+{% endfor %}
+
+{% if caixa is defined and caixa %}
+  <div class="aviso">
+    Este item está dentro da caixa
+    <strong class="mono">{{ caixa.id_caixa }}</strong>
+    — {{ caixa.nome }} ({{ caixa.especialidade }}, {{ caixa.total }} item(ns)).
+    Ele se move junto com ela: só é bipado sozinho no registro de uso.
+  </div>
+{% endif %}
+
+{% if caixas_anteriores is defined and caixas_anteriores %}
+<div class="cartao">
+  <h2>Caixas por onde passou</h2>
+  <div class="tabela-rolagem">
+    <table>
+      <thead><tr><th>Caixa</th><th>Entrou</th><th>Saiu</th><th>Motivo da saída</th></tr></thead>
+      <tbody>
+        {% for c in caixas_anteriores %}
+          <tr>
+            <td><span class="mono">{{ c.id_caixa }}</span>
+                <span class="suave pequeno">{{ c.nome }}</span></td>
+            <td class="pequeno">{{ c.entrou_em|data_hora_br }}</td>
+            <td class="pequeno">{{ c.saiu_em|data_hora_br or '— ainda dentro' }}</td>
+            <td class="pequeno suave">{{ c.motivo_saida or '—' }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<div class="grade grade-2">
+  <div class="cartao">
+    <h2>Identificação</h2>
+    <table>
+      <tr><th>Código de barras</th><td class="mono">{{ item.codigo_barras }}</td></tr>
+      <tr><th>Código AGHU</th><td>{{ item.codigo_aghu or '—' }}</td></tr>
+      <tr><th>Nº de série</th><td class="mono">{{ item.numero_serie or '—' }}</td></tr>
+      <tr><th>Lote</th><td class="mono">{{ item.nLote or '—' }}</td></tr>
+      <tr><th>Fabricação</th><td>{{ item.dFab|data_br or '—' }}</td></tr>
+      <tr><th>Validade</th><td>{{ item.dVal|data_br or '—' }}</td></tr>
+      <tr><th>Marca/Fabricante</th><td>{{ item.marca_fabricante or '—' }}</td></tr>
+      <tr><th>Fornecedor</th><td>{{ item.fornecedor or '—' }}</td></tr>
+    </table>
+  </div>
+
+  <div class="cartao">
+    <h2>Origem e destino</h2>
+    <table>
+      <tr><th>Entrada</th><td>{{ 'NF-e' if item.origem == 'xml' else 'Cadastro manual' }}</td></tr>
+      <tr><th>Nota fiscal</th><td>{{ item.numero_nf or '—' }}</td></tr>
+      <tr><th>Chave da NF</th><td class="mono pequeno">{{ item.chave_nf or '—' }}</td></tr>
+      <tr><th>Classificação</th><td>{{ item.tipo_entrada|replace('_', ' ')|title }}</td></tr>
+      <tr><th>Valor unitário</th><td>{{ item.vUnCom|moeda }}</td></tr>
+      <tr><th>Cadastrado em</th><td>{{ item.criado_em|data_hora_br }}</td></tr>
+      {% if item.prontuario %}
+        <tr><th>Prontuário</th>
+            <td><a href="/consultas/prontuario?numero={{ item.prontuario }}">{{ item.prontuario }}</a></td></tr>
+        <tr><th>Sala</th><td>{{ item.sala }}</td></tr>
+        <tr><th>Procedimento</th><td>{{ item.data_procedimento|data_br }}</td></tr>
+      {% endif %}
+    </table>
+  </div>
+</div>
+
+<div class="cartao">
+  <h2>Histórico completo</h2>
+  <p class="suave pequeno">Cada movimento gravado, com usuário e horário. Não é possível apagar.</p>
+  <div class="tabela-rolagem">
+    <table>
+      <thead><tr><th>Quando</th><th>Movimento</th><th>Situação resultante</th><th>Usuário</th><th>Motivo / observação</th></tr></thead>
+      <tbody>
+        {% for e in historico %}
+          <tr>
+            <td class="pequeno">{{ e.data_evento|data_hora_br }}</td>
+            <td>{{ OPERACOES[e.tipo].titulo if e.tipo in OPERACOES else e.tipo|replace('_', ' ')|capitalize }}</td>
+            <td>{% if e.status_novo %}<span class="etiqueta {{ cor_status(e.status_novo) }}">{{ rotulo_status(e.status_novo) }}</span>{% endif %}</td>
+            <td class="pequeno">{{ e.usuario or '—' }}</td>
+            <td class="pequeno">{{ e.motivo or '' }}{% if e.observacao %} <span class="suave">{{ e.observacao }}</span>{% endif %}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="5" class="vazio">Sem movimentos registrados.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

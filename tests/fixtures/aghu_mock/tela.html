@@ -1,0 +1,62 @@
+<html><head><meta charset="utf-8"></head><body><form id="formGerarNotaRecebimento">
+<input id="numero:numero:inputId_input" value="1513" disabled>
+<input id="serie:serie:inputId" value="U" disabled>
+<input id="valorTotalNota:valorTotalNota:inputId_input" value="1.100,00" disabled>
+<div id="msgs"></div>
+<div id="campos"></div>
+<input id="quantidadeReceber:quantidadeReceber:inputId_input">
+<input id="valorTotal:valorTotal:inputId_input">
+<button type="button" id="bt_adicionar:button">Adicionar</button>
+<table><tbody id="tabelaDocumentosFiscaisEntrada:resultList_data"></tbody></table>
+<input id="valorTotalItensField:valorTotalItens" value="0,00">
+<div id="cv" style="display:none">
+ <input id="lote:lote:inputId"><input id="data:data:inputId_input"><input id="tamanho:tamanho:inputId_input">
+ <button type="button" id="bt_adicionar_controle_validade:button">Adicionar lote</button>
+ <table><tbody id="tabelaControleValidade:resultList_data"></tbody></table>
+</div>
+</form>
+<script>
+const DB = {
+ sbMaterial: [["20843","CATETER GUIA"],["102739","LENTE"],["208430","OUTRO"]],
+ sbMarcaComercial: [["611253","SMT"],["1","MEDIFLEX"],["2","MEDIFLEX PLUS"]],
+ sbAlmoxarifadoEntrada: [["1","ALMOX CENTRAL"]],
+ sbUnidadeMedida: [["PAR","EMBALAGEM C/2"],["UN","UNIDADE"]],
+};
+const itens=[]; window.LOG=[];
+function q(id){return document.getElementById(id);}
+for (const base of Object.keys(DB)) {
+  const w=document.createElement("div");
+  w.innerHTML=`<input id="${base}:${base}:suggestion_input" ${base==="sbAlmoxarifadoEntrada"?"":""}><input type="hidden" id="${base}:${base}:suggestion_hinput"><div id="${base}:${base}:suggestion_panel" style="display:none"><table><tbody></tbody></table></div>`;
+  q("campos").appendChild(w);
+  const inp=q(`${base}:${base}:suggestion_input`), pan=q(`${base}:${base}:suggestion_panel`);
+  inp.addEventListener("input",()=>{ setTimeout(()=>{
+    const t=inp.value.toUpperCase(); const ops=DB[base].filter(([c,d])=>c.startsWith(t)||d.includes(t));
+    pan.querySelector("tbody").innerHTML=ops.map(([c,d])=>`<tr class="ui-autocomplete-item" data-item-label="${c}"><td>${c}</td><td>${d}</td></tr>`).join("");
+    pan.style.display=ops.length?"block":"none";
+    pan.querySelectorAll("tr").forEach(tr=>tr.onclick=()=>{inp.value=tr.dataset.itemLabel; q(`${base}:${base}:suggestion_hinput`).value=tr.dataset.itemLabel; pan.style.display="none";
+       if(base==="sbMaterial"){ q("sbUnidadeMedida:sbUnidadeMedida:suggestion_input").value=""; }});
+  },150);});
+}
+q("bt_adicionar:button").onclick=()=>{
+  const m=q("sbMaterial:sbMaterial:suggestion_hinput").value, mc=q("sbMarcaComercial:sbMarcaComercial:suggestion_hinput").value;
+  const qt=q("quantidadeReceber:quantidadeReceber:inputId_input").value, un=q("sbUnidadeMedida:sbUnidadeMedida:suggestion_hinput").value, v=q("valorTotal:valorTotal:inputId_input").value;
+  if(!m||!mc||!qt||!un||!v){q("msgs").innerHTML='<span class="ui-messages-error-summary">Campo obrigatório</span>';return;}
+  itens.push({m,mc,qt,un,v,lotes:[]}); window.LOG.push(["item",m,mc,qt,un,v]);
+  q("msgs").innerHTML='<span class="ui-messages-info-summary">Item de nota incluído na lista com sucesso!</span>';
+  render();
+  ["sbMaterial","sbMarcaComercial","sbUnidadeMedida"].forEach(b=>{q(`${b}:${b}:suggestion_input`).value="";q(`${b}:${b}:suggestion_hinput`).value="";});
+  q("quantidadeReceber:quantidadeReceber:inputId_input").value=""; q("valorTotal:valorTotal:inputId_input").value="";
+};
+let sel=-1;
+function renderLotes(){ q("tabelaControleValidade:resultList_data").innerHTML = sel<0?"":itens[sel].lotes.map((l,i)=>`<tr data-ri="${i}"><td>ed</td><td>${l[0]}</td><td></td><td>${l[1]}</td><td>${l[2]}</td></tr>`).join(""); }
+if (location.search.includes("pre=1")) { setTimeout(()=>{ itens.push({m:"20843",mc:"611253",qt:"2",un:"UN",v:"1000,00",lotes:[["TESTE1","10/10/2027","1"]]}); render(); },0); }
+function render(){
+  q("tabelaDocumentosFiscaisEntrada:resultList_data").innerHTML=itens.map((it,i)=>`<tr data-ri="${i}"><td><table id="tabelaDocumentosFiscaisEntrada:resultList:${i}:idRadio"><tr><td><div class="ui-radiobutton-box" onclick="sel=${i};document.getElementById('cv').style.display='block';renderLotes()">o</div></td></tr></table></td><td><span id="tabelaDocumentosFiscaisEntrada:resultList:${i}:materialCodigoNome">${it.m} - DESC</span></td></tr>`).join("");
+}
+q("bt_adicionar_controle_validade:button").onclick=()=>{
+  const l=q("lote:lote:inputId").value,d=q("data:data:inputId_input").value,t=q("tamanho:tamanho:inputId_input").value;
+  if(sel<0||!l||!/^\d{2}\/\d{2}\/\d{4}$/.test(d)||!t){q("msgs").innerHTML='<span class="ui-messages-error-summary">Lote inválido</span>';return;}
+  itens[sel].lotes.push([l,d,t]); window.LOG.push(["lote",itens[sel].m,l,d,t]); q("msgs").innerHTML=""; renderLotes();
+  q("lote:lote:inputId").value="";q("data:data:inputId_input").value="";q("tamanho:tamanho:inputId_input").value="";
+};
+</script></body></html>

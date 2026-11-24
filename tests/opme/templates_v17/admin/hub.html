@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+{% block titulo %}Administração · {{ APP_TITLE }}{% endblock %}
+
+{% block conteudo %}
+<div class="cartao" style="border-left:5px solid var({{ '--verde' if backup.em_dia else '--vermelho' }})">
+  <div class="entre">
+    <h2>Cópia de segurança</h2>
+    <form method="post" action="/admin/backup" style="margin:0">
+      <button class="botao secundario pequeno">Gerar cópia agora</button>
+    </form>
+  </div>
+  {% if backup.ultima %}
+    <p class="pequeno" style="margin:.3rem 0">
+      Última cópia: <strong>{{ backup.ultima.nome }}</strong>
+      ({{ backup.ultima.tamanho_mb }} MB) em {{ backup.ultima.quando|data_hora_br }} ·
+      {{ backup.total }} cópia(s) guardada(s).
+    </p>
+    {% if not backup.em_dia %}
+      <div class="aviso erro">
+        A última cópia é de {{ backup.dias_desde_ultima }} dia(s) atrás. A cópia é
+        feita quando a aplicação abre — se ela fica dias sem abrir, não há cópia nova.
+      </div>
+    {% endif %}
+  {% else %}
+    <div class="aviso erro">Nenhuma cópia de segurança encontrada ainda.</div>
+  {% endif %}
+  <p class="suave pequeno" style="margin:0">
+    As cópias ficam em <span class="mono">{{ backup.pasta }}</span>, no mesmo computador.
+    Isso protege contra erro de operação, <strong>não</strong> contra perda ou roubo da
+    máquina — copie a pasta para um disco externo ou rede periodicamente.
+  </p>
+</div>
+
+<div class="cabecalho-pagina">
+  <div>
+    <h1>Administração</h1>
+    <p>Liberação de acesso, perfis e redefinição de senha.</p>
+  </div>
+  <div class="acoes">
+    <a class="botao" href="/admin/entrega-paciente">Materiais com entrega da caixa ao paciente</a>
+    <a class="botao secundario" href="/indicadores/metas">Metas dos indicadores</a>
+    <a class="botao secundario" href="/admin/diagnostico">Diagnóstico técnico</a>
+  </div>
+</div>
+
+{# Catálogo de materiais do hospital: é dele que vem a descrição "HC - …" que
+   aparece ao digitar o código AGHU no almoxarifado. #}
+<div class="cartao" style="border-left:5px solid var(--azul)">
+  <h2>Lista de materiais do hospital (códigos AGHU)</h2>
+  <p class="suave pequeno" style="margin-top:0">
+    É daqui que vem a descrição <strong>HC -</strong> que aparece ao digitar o
+    código AGHU no almoxarifado.
+    {% if catalogo.total %}
+      Hoje: <strong>{{ catalogo.total }}</strong> códigos, atualizados por último em
+      {{ catalogo.quando|data_hora_br }}{% if catalogo.quem %} por {{ catalogo.quem }}{% endif %}.
+    {% else %}
+      Ainda não há nenhum código carregado.
+    {% endif %}
+  </p>
+  <form method="post" action="/admin/materiais" enctype="multipart/form-data"
+        data-confirmar="Atualizar a lista de materiais com esta planilha?">
+    <div class="filtros">
+      <div class="campo" style="flex:1">
+        <label class="obrigatorio">Planilha atualizada (.xlsx ou .csv)</label>
+        <input type="file" name="arquivo" accept=".xlsx,.csv" required>
+      </div>
+      <button class="botao">Atualizar lista</button>
+    </div>
+    <p class="suave pequeno" style="margin:.4rem 0 0">
+      Use o arquivo como ele sai da MasterTools — as colunas são reconhecidas pelo
+      nome (“Código AGHU”, “Nome Material”, “Valor Unitário”, “Código Master”), em
+      qualquer ordem. Códigos novos entram, os que mudaram são atualizados, e os que
+      saíram da planilha <strong>continuam</strong> no sistema. Materiais que já deram
+      entrada guardam a descrição que tinham na época.
+    </p>
+  </form>
+
+  {% if resultado_catalogo %}
+    {% set r = resultado_catalogo %}
+    <div class="grade grade-4" style="margin-top:1rem">
+      <div class="cartao"><div class="rotulo">códigos novos</div><div class="numero">{{ r.novos }}</div></div>
+      <div class="cartao"><div class="rotulo">alterados</div><div class="numero">{{ r.alterados }}</div></div>
+      <div class="cartao"><div class="rotulo">sem mudança</div><div class="numero">{{ r.iguais }}</div></div>
+      <div class="cartao"><div class="rotulo">fora da planilha (mantidos)</div><div class="numero">{{ r.ausentes }}</div></div>
+    </div>
+    <p class="pequeno suave">
+      {{ r.lidos }} código(s) lido(s) de <span class="mono">{{ r.arquivo }}</span>.
+      {% if r.ignoradas %}{{ r.ignoradas }} linha(s) sem código AGHU ou sem nome foram ignoradas.{% endif %}
+    </p>
+    {% if r.exemplos %}
+      <p class="pequeno" style="margin-bottom:.3rem"><strong>Exemplos do que mudou:</strong></p>
+      <ul class="pequeno" style="margin-top:0">
+        {% for e in r.exemplos %}
+          <li><span class="mono">{{ e.codigo }}</span>: “{{ e.antes }}” → “{{ e.depois }}”</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+  {% endif %}
+</div>
+
+<div class="cartao">
+  <h2>Solicitações pendentes ({{ solicitacoes|length }})</h2>
+  {% if solicitacoes %}
+    <div class="tabela-rolagem">
+      <table>
+        <thead><tr><th>Tipo</th><th>Usuário</th><th>Nome</th><th>Setor</th><th>Solicitada em</th><th>Ações</th></tr></thead>
+        <tbody>
+          {% for s in solicitacoes %}
+            <tr>
+              <td>
+                <span class="etiqueta {{ 'azul' if s.tipo == 'cadastro' else 'amarelo' }}">
+                  {{ 'Novo acesso' if s.tipo == 'cadastro' else 'Nova senha' }}
+                </span>
+              </td>
+              <td class="mono">{{ s.username }}</td>
+              <td>{{ s.nome or '—' }}<br><span class="suave pequeno">{{ s.email or '' }}</span></td>
+              <td>{{ s.setor or '—' }}</td>
+              <td class="pequeno">{{ s.criada_em|data_hora_br }}</td>
+              <td>
+                <form method="post" action="/admin/solicitacao/{{ s.id_solicitacao }}/aprovar"
+                      style="display:flex;gap:.4rem;align-items:center;margin-bottom:.4rem">
+                  {% if s.tipo == 'cadastro' %}
+                    <select name="papel" style="width:auto">
+                      {% for codigo, dados in papeis.items() %}
+                        <option value="{{ codigo }}" {{ 'selected' if s.papel == codigo }}>{{ dados[0] }}</option>
+                      {% endfor %}
+                    </select>
+                  {% endif %}
+                  <button class="botao pequeno">Aprovar</button>
+                </form>
+                <form method="post" action="/admin/solicitacao/{{ s.id_solicitacao }}/rejeitar"
+                      style="display:flex;gap:.4rem" data-confirmar="Rejeitar esta solicitação?">
+                  <input type="text" name="motivo" placeholder="motivo" style="width:auto">
+                  <button class="botao pequeno secundario">Rejeitar</button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="vazio">Nenhuma solicitação pendente.</p>
+  {% endif %}
+</div>
+
+<div class="cartao">
+  <h2>Usuários ({{ usuarios|length }})</h2>
+  <div class="tabela-rolagem">
+    <table>
+      <thead><tr><th>Usuário</th><th>Nome</th><th>Setor</th><th>Perfil</th>
+                 <th>Situação</th><th>Último acesso</th><th>Ações</th></tr></thead>
+      <tbody>
+        {% for u in usuarios %}
+          <tr>
+            <td class="mono">{{ u.username }}</td>
+            <td>{{ u.nome }}<br><span class="suave pequeno">{{ u.email or '' }}</span></td>
+            <td>{{ u.setor or '—' }}</td>
+            <td>
+              <form method="post" action="/admin/usuario/{{ u.username }}/papel" style="display:flex;gap:.4rem">
+                <select name="papel" style="width:auto">
+                  {% for codigo, dados in papeis.items() %}
+                    <option value="{{ codigo }}" {{ 'selected' if u.papel == codigo }}>{{ dados[0] }}</option>
+                  {% endfor %}
+                </select>
+                <button class="botao pequeno secundario">Salvar</button>
+              </form>
+            </td>
+            <td>
+              <span class="etiqueta {{ 'verde' if u.status == 'ativo' else 'cinza' }}">{{ u.status }}</span>
+            </td>
+            <td class="pequeno">{{ u.ultimo_acesso|data_hora_br or 'nunca' }}
+              {% if u.bloqueado_ate %}
+                <br><span class="etiqueta vermelho">bloqueado por tentativas</span>
+                <form method="post" action="/admin/usuarios/{{ u.username }}/desbloquear"
+                      style="display:inline">
+                  <button class="botao pequeno secundario">Desbloquear</button>
+                </form>
+              {% endif %}
+            </td>
+            <td>
+              <form method="post" action="/admin/usuario/{{ u.username }}/status">
+                <input type="hidden" name="status" value="{{ 'inativo' if u.status == 'ativo' else 'ativo' }}">
+                <button class="botao pequeno {{ 'perigo' if u.status == 'ativo' else '' }}">
+                  {{ 'Desativar' if u.status == 'ativo' else 'Ativar' }}
+                </button>
+              </form>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

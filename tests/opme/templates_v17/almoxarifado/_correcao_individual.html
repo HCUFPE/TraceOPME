@@ -1,0 +1,45 @@
+{# Correção de uma unidade por vez — incluído por correcoes.html. #}
+  {% for item in itens %}
+    <details class="cartao">
+      <summary style="cursor:pointer">
+        <strong>{{ item.xProd }}</strong>
+        <span class="suave pequeno">· lote {{ item.nLote or '—' }} · val. {{ item.dVal|data_br or '—' }}</span>
+        <span class="etiqueta {{ cor_status(item.status) }}">{{ rotulo_status(item.status) }}</span>
+        <span class="mono pequeno suave">{{ item.id_unidade }}</span>
+      </summary>
+
+      <form method="post" action="/almoxarifado/correcoes/{{ item.id_unidade }}" style="margin-top:1rem">
+        <input type="hidden" name="busca" value="{{ busca }}">
+        <div class="grade grade-3">
+          <div class="campo"><label>Descrição</label><input type="text" name="xProd" value="{{ item.xProd }}"></div>
+          <div class="campo"><label>Código de barras</label><input type="text" name="codigo_barras" value="{{ item.codigo_barras }}"></div>
+          <div class="campo"><label>Código AGHU</label><input type="text" name="codigo_aghu" value="{{ item.codigo_aghu or '' }}"></div>
+          <div class="campo"><label>Marca/Fabricante</label><input type="text" name="marca_fabricante" value="{{ item.marca_fabricante or '' }}"></div>
+          <div class="campo"><label>Fornecedor</label><input type="text" name="fornecedor" value="{{ item.fornecedor or '' }}"></div>
+          <div class="campo"><label>Lote</label><input type="text" name="nLote" value="{{ item.nLote or '' }}"></div>
+          <div class="campo"><label>Nº de série</label><input type="text" name="numero_serie" value="{{ item.numero_serie or '' }}"></div>
+          <div class="campo"><label>Fabricação</label><input type="date" name="dFab" value="{{ item.dFab or '' }}"></div>
+          <div class="campo"><label>Validade</label><input type="date" name="dVal" value="{{ item.dVal or '' }}"></div>
+          <div class="campo"><label>Valor unitário</label><input type="text" name="vUnCom" value="{{ item.vUnCom or 0 }}"></div>
+          <div class="campo">
+            <label>Classificação</label>
+            <select name="tipo_entrada">
+              {% for codigo, nome in tipos.items() %}
+                <option value="{{ codigo }}" {{ 'selected' if item.tipo_entrada == codigo }}>{{ nome }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="campo">
+          <label class="obrigatorio">Motivo da correção</label>
+          <input type="text" name="motivo" required placeholder="Ex.: validade digitada errada na entrada">
+        </div>
+        <div class="linha-botoes">
+          <button class="botao">Salvar correção</button>
+          <a class="botao secundario" href="/consultas/item/{{ item.id_unidade }}">Ver histórico</a>
+        </div>
+      </form>
+    </details>
+  {% else %}
+    <div class="cartao"><p class="vazio">Nenhum item encontrado para “{{ busca }}”.</p></div>
+  {% endfor %}

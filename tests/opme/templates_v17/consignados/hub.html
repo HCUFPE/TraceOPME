@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block titulo %}Consignados · {{ APP_TITLE }}{% endblock %}
+
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <div>
+    <h1>Consignados</h1>
+    <p>Saldo de empenho por código AGHU.</p>
+  </div>
+</div>
+
+{% if alertas %}
+<div class="cartao" style="margin-bottom:1.25rem;border-left:5px solid var(--vermelho)">
+  <h2>{{ alertas|length }} alerta(s) de saldo</h2>
+  {% for a in alertas %}
+    <div style="padding:.6rem 0;border-bottom:1px solid var(--borda)">
+      <strong class="pequeno">{{ a.titulo }}</strong>
+      <p class="pequeno" style="margin:.2rem 0">{{ a.mensagem }}</p>
+      {% if a.link %}<a class="pequeno" href="{{ a.link }}">Abrir empenho</a> ·{% endif %}
+      <span class="suave pequeno">{{ a.criado_em|data_hora_br }}</span>
+      <form method="post" action="/alertas/{{ a.id_alerta }}/resolver" style="display:inline;margin-left:.5rem">
+        <button class="botao secundario pequeno">Marcar como resolvido</button>
+      </form>
+    </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="grade grade-3">
+  <a class="acao-card cor-roxo{{ ' alta' if pendentes }}" href="/consignados/pendentes">
+    <h3>Usos sem empenho</h3>
+    <div class="numero">{{ pendentes }}</div>
+    <p class="rotulo">consignados usados que não tinham empenho com saldo — vincule à mão</p>
+  </a>
+
+  <a class="acao-card cor-roxo" href="/consignados/empenhos">
+    <h3>Empenhos</h3>
+    <p class="rotulo">Ver saldo, histórico de vínculos e encerrar empenho.</p>
+  </a>
+
+  <a class="acao-card cor-roxo" href="/consignados/empenhos/novo">
+    <h3>Cadastrar empenho</h3>
+    <p class="rotulo">Registre um novo empenho recebido da gestão.</p>
+  </a>
+</div>
+
+<div class="cartao" style="margin-top:1.5rem">
+  <h2>Empenhos ativos</h2>
+  {% if ativos %}
+    <div class="tabela-rolagem">
+      <table>
+        <thead><tr><th>Nº</th><th>Fornecedor</th><th>AGHU</th><th>Material</th>
+                   <th class="num">Saldo</th><th></th></tr></thead>
+        <tbody>
+          {% for e in ativos %}
+            <tr>
+              <td class="mono">{{ e.identificacao or e.numero }}</td>
+              <td>{{ e.fornecedor }}</td>
+              <td class="mono pequeno">{{ e.codigos_aghu|join(', ') or '—' }}</td>
+              <td>{{ e.material }}</td>
+              <td class="num">
+                <span class="etiqueta {{ 'vermelho' if e.no_limite else ('amarelo' if e.percentual_usado >= 60 else 'verde') }}">
+                  {{ e.saldo }} de {{ e.quantidade_total }}{% if e.no_limite %} · pedir mais empenho{% endif %}
+                </span>
+              </td>
+              <td><a class="botao pequeno secundario" href="/consignados/empenhos/{{ e.id_empenho }}">Abrir</a></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="vazio">Nenhum empenho ativo. <a href="/consignados/empenhos/novo">Cadastrar agora</a>.</p>
+  {% endif %}
+</div>
+{% endblock %}

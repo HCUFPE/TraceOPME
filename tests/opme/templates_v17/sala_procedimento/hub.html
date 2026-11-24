@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block titulo %}Sala de procedimento · {{ APP_TITLE }}{% endblock %}
+
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <div>
+    <h1>Sala de procedimento</h1>
+    <p>Confirme o que a farmácia dispensou, bipe cada material no momento do uso e
+       finalize os materiais utilizados, devolvendo à farmácia o que não foi usado. Cada item fica vinculado ao prontuário.</p>
+  </div>
+</div>
+
+{% include "sala_procedimento/_unidade.html" %}
+
+<div class="grade grade-3">
+  {% if disp_pendentes %}
+  <a class="acao-card cor-verde alta" href="/sala-procedimento/atendimentos">
+    <h3>Confirmar recebimento da farmácia</h3>
+    <div class="numero">{{ disp_pendentes|length }}</div>
+    <p class="rotulo">Material dispensado aguardando a confirmação da sala.</p>
+  </a>
+  {% endif %}
+  {% if nao_recebidos %}
+  <a class="acao-card alta" href="/sala-procedimento/atendimentos#nao-recebidos">
+    <h3>Conferir: a farmácia não recebeu de volta</h3>
+    <div class="numero">{{ nao_recebidos|length }}</div>
+    <p class="rotulo">Prontuário(s) com material da lista de não utilizados que não chegou à farmácia. Bipe o uso ou devolva.</p>
+  </a>
+  {% endif %}
+  <a class="acao-card cor-verde" href="/sala-procedimento/atendimentos">
+    <h3>Solicitar OPME à farmácia</h3>
+    <p class="rotulo">Escolha o paciente e solicite os OPME para o procedimento.</p>
+  </a>
+  <a class="acao-card cor-roxo{{ ' alta' if caixas_sala.enviadas or caixas_sala.fora_do_prazo or caixas_sala.divergentes }}" href="/sala-procedimento/caixas">
+    <h3>Caixas na sala</h3>
+    <div class="numero">{{ caixas_sala.na_sala }}</div>
+    <p class="rotulo">caixa(s) de consignado na sala{% if caixas_sala.enviadas %} · <strong>{{ caixas_sala.enviadas }} chegando — dar ciência</strong>{% endif %}{% if caixas_sala.fora_do_prazo %} · <strong>{{ caixas_sala.fora_do_prazo }} fora do prazo (devolver até 23:59)</strong>{% endif %}{% if caixas_sala.divergentes %} · <strong>{{ caixas_sala.divergentes }} com pendência</strong>{% endif %}.</p>
+  </a>
+  <a class="acao-card cor-verde" href="/sala-procedimento/atendimentos?operacao=registrar_uso">
+    <h3>Registrar uso no paciente</h3>
+    <p class="rotulo">Escolha o paciente e bipe cada material no momento do uso.</p>
+  </a>
+
+  <a class="acao-card cor-azul" href="/procedimentos">
+    <h3>Procedimentos do dia</h3>
+    <div class="numero">{{ cirurgias }}</div>
+    <p class="rotulo">cirurgias com OPME hoje{% if unidade_atual %} em {{ unidades[unidade_atual].rotulo }}{% endif %}</p>
+  </a>
+
+  <a class="acao-card cor-azul" href="/consultas/prontuario">
+    <h3>Consultar por prontuário</h3>
+    <p class="rotulo">Tudo que foi implantado em um paciente, com lote e validade.</p>
+  </a>
+
+  <a class="acao-card cor-amarelo" href="/sala-procedimento/estorno">
+    <h3>Estornar uso registrado</h3>
+    <p class="rotulo">Bipou no paciente errado ou em duplicidade? Corrija aqui, com motivo
+       registrado. O item volta ao estoque de onde saiu (farmácia ou almoxarifado). Nada é apagado.</p>
+  </a>
+</div>
+{% endblock %}

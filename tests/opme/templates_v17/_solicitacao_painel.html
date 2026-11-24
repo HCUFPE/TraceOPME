@@ -1,0 +1,82 @@
+{# Solicitação da sala × dispensado pela farmácia.
+   Espera: sol (solicitacoes.situacao), modo ('farmacia' ou 'sala'), atendimento. #}
+{% if sol.existe and sol.cancelada_em %}
+  <div class="aviso" style="margin:0 0 .5rem;background:var(--cinza-claro)"><strong>Solicitação cancelada</strong> — o procedimento foi
+    cancelado em {{ sol.cancelada_em }} por {{ sol.cancelada_por }}. Nada mais a atender.</div>
+{% endif %}
+{% if sol.existe %}
+  <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
+    <div style="flex:1 1 auto">
+      <strong>Solicitação da sala:</strong>
+      <span class="etiqueta {{ 'verde' if not sol.qtd_faltando else 'amarelo' }}">{{ sol.qtd_atendidas }} de {{ sol.qtd_linhas }} atendido(s)</span>
+      {% if sol.nao_solicitados %}<span class="etiqueta vermelho">{{ sol.nao_solicitados|sum(attribute='quantidade') }} bipado(s) sem solicitação</span>{% endif %}
+      <span class="pequeno suave">— pedido por {{ sol.criado_por }} · {{ sol.atualizado_em }}</span>
+    </div>
+  </div>
+  {% if sol.observacao %}<p class="pequeno" style="margin:.4rem 0 0"><strong>Obs. da sala:</strong> {{ sol.observacao }}</p>{% endif %}
+  <div style="overflow-x:auto"><table style="margin-top:.6rem">
+    <thead><tr><th>Situação</th><th>AGHU</th><th>Material solicitado</th>
+      <th class="num">Pedido</th><th class="num">Dispensado</th><th></th></tr></thead>
+    <tbody>
+      {% for l in sol.linhas %}
+      <tr {% if l.status == 'atendido' %}style="background:var(--verde-claro)"{% elif l.status == 'parcial' %}style="background:var(--amarelo-claro)"{% endif %}>
+        <td style="white-space:nowrap">{% if l.status == 'atendido' %}<span class="etiqueta verde">✔ dispensado</span>{% elif l.status == 'parcial' %}<span class="etiqueta amarelo">parcial</span>{% else %}<span class="etiqueta cinza">aguardando farmácia</span>{% endif %}</td>
+        <td class="mono pequeno">{{ l.codigos.replace(' ', ' / ') if l.codigos else '—' }}</td>
+        <td class="pequeno">{{ l.descricao }}{% if l.especificacao %} <strong>{{ l.especificacao }}</strong>{% endif %}
+          {% if l.formulario == 'avulso' %}<span class="etiqueta cinza">fora do formulário</span>{% endif %}
+          {% if l.manual %}<br><span class="suave">marcado à mão por {{ l.manual_por }}</span>{% endif %}
+          {% for v in l.vinculos %}<br><span class="etiqueta azul">atendido com outro código</span>
+            <span class="pequeno">AGHU {{ v.aghu }} · {{ v.descricao_bipada }} · lote {{ v.lote }} — {{ v.motivo }} ({{ v.vinculado_por }})</span>{% endfor %}</td>
+        <td class="num"><strong>{{ l.quantidade }}</strong></td>
+        <td class="num">{{ l.dispensado }}</td>
+        <td style="text-align:right">
+          {% if modo == 'farmacia' and l.sem_codigo and atendimento.status == 'aberto' %}
+          <form method="post" action="/farmacia/atendimento/{{ atendimento.id_atendimento }}/solicitacao/manual/{{ l.id_item }}" style="display:inline">
+            <input type="hidden" name="atendido" value="{{ '0' if l.manual else '1' }}">
+            <button class="botao secundario pequeno" data-sem-foco="1">{{ 'desmarcar' if l.manual else 'marcar atendido' }}</button>
+          </form>
+          {% endif %}
+          {% if modo == 'farmacia' and not l.sem_codigo and atendimento.status == 'aberto' %}
+            {% if l.vinculos %}
+            <form method="post" action="/farmacia/atendimento/{{ atendimento.id_atendimento }}/solicitacao/outro-codigo/{{ l.id_item }}" style="display:inline">
+              <input type="hidden" name="desfazer" value="1">
+              <button class="botao secundario pequeno" data-sem-foco="1">desfazer outro código</button></form>
+            {% endif %}
+          {% endif %}
+        </td>
+      </tr>
+      {% if modo == 'farmacia' and not l.sem_codigo and atendimento.status == 'aberto' and l.status != 'atendido' and sol.nao_solicitados %}
+      <tr><td colspan="6" style="padding-top:0;border-top:0">
+        <details><summary class="pequeno" style="cursor:pointer;color:var(--azul, #0c3a67)">“{{ l.descricao[:45] }}” foi atendido com outro código AGHU?</summary>
+          <form method="post" action="/farmacia/atendimento/{{ atendimento.id_atendimento }}/solicitacao/outro-codigo/{{ l.id_item }}"
+                style="margin:.5rem 0 .3rem;display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
+            <select name="unidades" required data-sem-foco="1" style="flex:2 1 22rem">
+              <option value="">— escolha o material bipado —</option>
+              {% for g in sol.nao_solicitados %}<option value="{{ g.ids|join(',') }}">AGHU {{ g.aghu }} · {{ g.descricao[:50] }} · lote {{ g.lote }} ({{ g.quantidade }} unid.)</option>{% endfor %}
+            </select>
+            <input type="text" name="motivo" list="motivos-outro-codigo" required minlength="5" data-sem-foco="1"
+                   placeholder="motivo (ex.: código AGHU mudou)" style="flex:1 1 15rem">
+            <datalist id="motivos-outro-codigo">{% for m in motivos_outro_codigo %}<option value="{{ m }}">{% endfor %}</datalist>
+            <button class="botao pequeno" data-sem-foco="1">confirmar</button>
+          </form>
+        </details></td></tr>
+      {% endif %}
+      {% endfor %}
+    </tbody>
+  </table></div>
+  {% if sol.nao_solicitados %}
+  <div class="aviso erro" style="margin-top:.7rem">
+    <strong>Bipado sem estar na solicitação</strong> — confira com a sala:
+    <ul style="margin:.3rem 0 0 1.1rem">
+      {% for g in sol.nao_solicitados %}
+      <li class="pequeno"><span class="mono"><strong>AGHU {{ g.aghu }}</strong></span> · {{ g.descricao }} · lote {{ g.lote }} — <strong>{{ g.quantidade }}</strong> unid. ({{ g.motivo }})</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+  {% if sol.finalizada_em and sol.motivo_faltas %}
+  <p class="pequeno" style="margin:.6rem 0 0"><strong>Dispensa finalizada com falta</strong> por {{ sol.finalizada_por }} em {{ sol.finalizada_em }} — motivo: {{ sol.motivo_faltas }}</p>
+  {% endif %}
+{% else %}
+  <p class="pequeno suave" style="margin:0">{% if modo == 'farmacia' %}A sala ainda não fez a solicitação deste paciente no sistema.{% else %}Nenhum material solicitado ainda.{% endif %}</p>
+{% endif %}

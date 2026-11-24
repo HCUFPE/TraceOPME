@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% import "indicadores/_componentes.html" as ui with context %}
+{% block titulo %}Indicadores · {{ APP_TITLE }}{% endblock %}
+
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <div>
+    <h1>Indicadores</h1>
+    <p>Período de {{ inicio|data_br }} a {{ fim|data_br }}. Passe o mouse no “?” de cada
+       indicador para ver como ele é calculado.</p>
+  </div>
+</div>
+
+{{ ui.abas('resumo', inicio, fim) }}
+{{ ui.filtro_periodo('/indicadores', inicio, fim) }}
+
+{% if criticos %}
+<div class="cartao borda-vermelha">
+  <h2>Fora da meta ({{ criticos|length }})</h2>
+  <p class="suave pequeno">Estes indicadores estão além do limite de atenção configurado.</p>
+  <div class="tabela-rolagem">
+    <table>
+      <thead><tr><th>Indicador</th><th class="num">Valor</th><th class="num">Meta</th>
+                 <th>O que costuma estar por trás</th></tr></thead>
+      <tbody>
+        {% for i in criticos %}
+          <tr>
+            <td><strong>{{ i.indicador.nome }}</strong></td>
+            <td class="num"><span class="etiqueta vermelho">{{ i.texto }}</span></td>
+            <td class="num">{{ i.meta_texto }}</td>
+            <td class="pequeno">{{ i.indicador.por_que }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% if atencao %}
+<div class="cartao borda-amarela">
+  <h2>Em atenção ({{ atencao|length }})</h2>
+  <div class="tabela-rolagem">
+    <table>
+      <thead><tr><th>Indicador</th><th class="num">Valor</th><th class="num">Meta</th></tr></thead>
+      <tbody>
+        {% for i in atencao %}
+          <tr>
+            <td>{{ i.indicador.nome }}</td>
+            <td class="num"><span class="etiqueta amarelo">{{ i.texto }}</span></td>
+            <td class="num">{{ i.meta_texto }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<h2>Visão geral</h2>
+<div class="grade-kpi">
+  {% for item in destaque %}{{ ui.cartao(item) }}{% endfor %}
+</div>
+
+<div class="cartao">
+  <h2>Consumo nos últimos 12 meses</h2>
+  <p class="suave pequeno">Quantidade de OPMEs implantados por mês.</p>
+  {{ ui.linha_tempo(evolucao, 'utilizados', 'Itens utilizados por mês') }}
+</div>
+
+{% for chave, dados in grupos.items() %}
+  <div class="cartao">
+    <div class="entre">
+      <div>
+        <h2>{{ dados[0] }}</h2>
+        <p class="suave pequeno" style="margin:0">{{ dados[1] }}</p>
+      </div>
+      <a class="botao secundario pequeno"
+         href="/indicadores/{{ chave }}?inicio={{ inicio }}&fim={{ fim }}">Abrir detalhamento</a>
+    </div>
+    <div class="tabela-rolagem" style="margin-top:.75rem">
+      <table>
+        <thead><tr><th>Indicador</th><th>Responde a</th><th class="num">Valor</th>
+                   <th class="num">Meta</th><th>Situação</th></tr></thead>
+        <tbody>
+          {% for i in por_grupo[chave] %}
+            <tr>
+              <td><strong>{{ i.indicador.nome }}</strong></td>
+              <td class="pequeno suave">{{ i.indicador.pergunta }}</td>
+              <td class="num"><strong>{{ i.texto }}</strong></td>
+              <td class="num pequeno">{{ i.meta_texto if i.meta is not none else '—' }}</td>
+              <td>
+                {% if i.situacao == 'verde' %}<span class="etiqueta verde">na meta</span>
+                {% elif i.situacao == 'amarelo' %}<span class="etiqueta amarelo">atenção</span>
+                {% elif i.situacao == 'vermelho' %}<span class="etiqueta vermelho">fora da meta</span>
+                {% else %}<span class="etiqueta cinza">acompanhamento</span>{% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% endfor %}
+{% endblock %}

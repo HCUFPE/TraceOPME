@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+{% block titulo %}Finalizar materiais utilizados · {{ APP_TITLE }}{% endblock %}
+
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <div>
+    <h1>Finalizar materiais utilizados — prontuário {{ atendimento.prontuario }}</h1>
+    <p>{{ descricao }}{% if atendimento.paciente %} · {{ atendimento.paciente }}{% endif %}</p>
+  </div>
+  <div class="acoes">
+    <a class="botao secundario" href="/bipagem/registrar_uso?atendimento={{ atendimento.id_atendimento }}">Voltar a bipar</a>
+  </div>
+</div>
+
+<div class="aviso">
+  Confira o que foi usado no paciente. Se algum bip entrou por engano (duplicado, paciente errado,
+  material que não foi usado), exclua aqui. Ao <strong>finalizar</strong>, o que a farmácia dispensou e
+  não foi usado é devolvido à farmácia — conferindo pela lista ou bipando o material.
+  A farmácia confere, dá ciência e encerra o procedimento.
+</div>
+
+{% if entregas %}
+<div class="cartao alerta-entrega-cartao">
+  <h2>Caixa a entregar ao paciente</h2>
+  <div class="tabela-rolagem">
+    <table>
+      <thead><tr><th>Material</th><th>AGHU</th><th>Lote</th><th>Ciência</th></tr></thead>
+      <tbody>
+        {% for e in entregas %}
+          <tr>
+            <td><strong>{{ e.descritivo_hospital or e.xProd }}</strong></td>
+            <td class="mono">{{ e.codigo_aghu }}</td>
+            <td class="mono">{{ e.nLote or '—' }}</td>
+            <td>
+              {% if e.ciencia_por %}
+                <span class="etiqueta verde">ciente — {{ e.ciencia_por }}, {{ e.ciencia_em|data_hora_br }}</span>
+              {% else %}
+                <form method="post" style="margin:0"
+                      action="/sala-procedimento/atendimento/{{ atendimento.id_atendimento }}/ciencia/{{ e.id_unidade }}">
+                  <button class="botao perigo pequeno">Estou ciente: vou entregar a caixa ao paciente</button>
+                </form>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<div class="cartao">
+  <h2>{{ usados|length }} material(is) bipado(s) neste paciente</h2>
+  {% if usados %}
+    <div class="tabela-rolagem">
+      <table>
+        <thead><tr><th>Produto</th><th>AGHU</th><th>Lote</th><th>Validade</th><th>Bipado em</th><th>Excluir bip</th></tr></thead>
+        <tbody>
+          {% for m in usados %}
+            <tr>
+              <td>{{ m.descritivo_hospital or m.xProd }}<br><span class="suave pequeno">{{ m.fornecedor or '' }}</span></td>
+              <td class="mono pequeno">{{ m.codigo_aghu or '—' }}</td>
+              <td class="mono">{{ m.nLote or '—' }}</td>
+              <td>{{ m.dVal|data_br or '—' }}</td>
+              <td class="pequeno">{{ m.ultimo_movimento|data_hora_br }}</td>
+              <td>
+                <form method="post" style="margin:0;display:flex;gap:.4rem;align-items:center"
+                      action="/sala-procedimento/atendimento/{{ atendimento.id_atendimento }}/excluir/{{ m.id_unidade }}"
+                      data-confirmar="Excluir este bip? O item volta ao estoque do almoxarifado.">
+                  <select name="motivo" required style="width:auto">
+                    <option value="">motivo…</option>
+                    <option>Bipado em duplicidade</option>
+                    <option>Bipado no paciente errado</option>
+                    <option>Material não foi utilizado</option>
+                    <option>Material errado bipado</option>
+                  </select>
+                  <button class="botao secundario pequeno">Excluir</button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="vazio">Nenhum material bipado neste atendimento.</p>
+  {% endif %}
+</div>
+
+<form method="post" action="/sala-procedimento/atendimento/{{ atendimento.id_atendimento }}/finalizar-uso"
+      id="form-finalizar" data-identificar="/sala-procedimento/atendimento/{{ atendimento.id_atendimento }}/sobras/identificar"
+      data-confirmar="Finalizar os materiais utilizados deste prontuário? Depois disso a sala não bipa mais uso neste paciente.">
+{% if sobras.total %}
+<div class="cartao" style="border-left:5px solid var(--amarelo, #b58100)">
+  <h2>Devolver os não utilizados à farmácia ({{ sobras.total }})</h2>
+  <div style="display:flex;gap:1.2rem;flex-wrap:wrap;margin:.2rem 0 .6rem">
+    <label style="display:flex;gap:.4rem;align-items:center;font-weight:600">
+      <input type="radio" name="modo_sobras" value="lista" checked style="width:auto"> Conferir pela lista</label>
+    <label style="display:flex;gap:.4rem;align-items:center;font-weight:600">
+      <input type="radio" name="modo_sobras" value="bipando" style="width:auto"> Conferir bipando o material</label>
+  </div>
+  <p class="suave pequeno" id="ajuda-sobras-lista">Tudo vem marcado. <strong>Desmarque o que não está devolvendo</strong> — o item
+    continua com o paciente, como pendência da sala. O que está marcado vai para a farmácia dar ciência.
+    Algum destes foi usado? Volte a bipar o uso antes de finalizar.</p>
+  <div id="bloco-sobras-bip" hidden>
+    <p class="suave pequeno">Bipe cada material que está voltando para a farmácia. Só o que for bipado vai para a lista
+      da farmácia; o que <strong>não</strong> for bipado continua com o paciente, como pendência da sala.</p>
+    <label for="bip-sobras">Bipe o código de barras (ou o código da caixa)</label>
+    <input type="text" id="bip-sobras" autocomplete="off" placeholder="aguardando leitura…"
+           style="font-size:1.4rem;padding:.7rem;text-align:center">
+    <div style="display:flex;gap:1rem;align-items:center;margin:.5rem 0 .8rem;flex-wrap:wrap">
+      <span class="etiqueta azul" style="font-size:1rem"><span id="sobras-contagem">0</span> de {{ sobras.itens|length + sobras.caixas|length }} bipado(s)</span>
+      <span class="pequeno" id="sobras-resultado"></span>
+    </div>
+  </div>
+  <div class="tabela-rolagem"><table>
+    <thead><tr><th>Devolvido?</th><th>Material</th><th>AGHU</th><th>Lote</th><th>Validade</th></tr></thead>
+    <tbody>
+      {% for i in sobras.itens %}
+      <tr data-chave="u:{{ i.id_unidade }}"><td><input type="checkbox" class="marca-lista" value="u:{{ i.id_unidade }}" checked style="width:1.4rem;height:1.4rem"><span class="etiqueta verde marca-bip" style="display:none">✔ bipado</span><span class="etiqueta cinza marca-falta" style="display:none">não bipado</span></td>
+          <td>{{ i.descritivo_hospital or i.xProd }}</td><td class="mono pequeno">{{ i.codigo_aghu or '—' }}</td>
+          <td class="mono">{{ i.nLote or '—' }}</td><td class="pequeno">{{ i.dVal|data_br or '—' }}</td></tr>
+      {% endfor %}
+      {% for c in sobras.caixas %}
+      <tr data-chave="c:{{ c.id_caixa|upper }}"><td><input type="checkbox" class="marca-lista" value="c:{{ c.id_caixa|upper }}" checked style="width:1.4rem;height:1.4rem"><span class="etiqueta verde marca-bip" style="display:none">✔ bipado</span><span class="etiqueta cinza marca-falta" style="display:none">não bipado</span></td>
+          <td><strong>Caixa <span class="mono">{{ c.id_caixa }}</span></strong> {{ c.nome }} — {{ c.qtd }} item(ns)</td><td>—</td><td>—</td><td>—</td></tr>
+      {% endfor %}
+    </tbody>
+  </table></div>
+  <div id="sobras-campos"></div>
+</div>
+{% endif %}
+
+<div class="cartao" style="border-left:5px solid var(--verde)">
+  <h2>Tudo certo?</h2>
+  <p class="suave pequeno">Depois de finalizar, não é possível bipar mais uso neste prontuário (só os itens
+     que a farmácia não receber de volta, se ela avisar).</p>
+  {% if complemento %}
+  <div class="aviso alerta" style="margin:.6rem 0">
+    <strong>Dispensado pela farmácia depois que a sala já estava aberta ({{ complemento|length }}):</strong>
+    <ul style="margin:.35rem 0 .5rem 1.1rem">
+      {% for i in complemento %}
+      <li class="pequeno"><span class="mono">AGHU {{ i.codigo_aghu or '—' }}</span> · {{ i.descritivo_hospital or i.xProd }}
+        · lote {{ i.nLote or '—' }}{% if i.id_caixa %} · caixa {{ i.id_caixa }}{% endif %}
+        <span class="suave">— dispensado por {{ i.bipado_por }} em {{ i.bipado_em|data_hora_br }}</span></li>
+      {% endfor %}
+    </ul>
+    <label style="display:flex;gap:.5rem;align-items:flex-start;font-weight:600">
+      <input type="checkbox" name="ciencia_complemento" value="1" required style="width:auto;margin-top:.2rem">
+      Dou ciência do recebimento destes itens na sala (fica registrado com o meu usuário).</label>
+  </div>
+  {% endif %}
+  <button class="botao">Finalizar materiais utilizados</button>
+</div>
+</form>
+
+{% if sobras.total %}
+<script>
+(function () {
+  var form = document.getElementById("form-finalizar");
+  var campo = document.getElementById("bip-sobras");
+  var bloco = document.getElementById("bloco-sobras-bip");
+  var ajuda = document.getElementById("ajuda-sobras-lista");
+  var contagem = document.getElementById("sobras-contagem");
+  var resultado = document.getElementById("sobras-resultado");
+  var campos = document.getElementById("sobras-campos");
+  var linhas = form.querySelectorAll("tr[data-chave]");
+  var bipados = {};
+  function modo() { return form.querySelector('input[name="modo_sobras"]:checked').value; }
+  function atualizar() {
+    var b = modo() === "bipando";
+    bloco.hidden = !b; ajuda.hidden = b;
+    linhas.forEach(function (tr) {
+      var k = tr.dataset.chave, ok = !!bipados[k];
+      tr.querySelector(".marca-lista").style.display = b ? "none" : "";
+      tr.querySelector(".marca-bip").style.display = (b && ok) ? "" : "none";
+      tr.querySelector(".marca-falta").style.display = (b && !ok) ? "" : "none";
+      tr.style.background = (b && ok) ? "var(--verde-claro)" : "";
+    });
+    contagem.textContent = Object.keys(bipados).length;
+    var lista = b ? Object.keys(bipados) :
+      Array.prototype.filter.call(form.querySelectorAll(".marca-lista"), function (c) { return c.checked; })
+        .map(function (c) { return c.value; });
+    campos.innerHTML = lista.map(function (k) {
+      return '<input type="hidden" name="devolver" value="' + k.replace(/"/g, "") + '">';
+    }).join("");
+    if (b) campo.focus();
+  }
+  form.querySelectorAll('input[name="modo_sobras"]').forEach(function (r) { r.addEventListener("change", atualizar); });
+  form.querySelectorAll(".marca-lista").forEach(function (c) { c.addEventListener("change", atualizar); });
+  campo.addEventListener("keydown", function (e) {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    var codigo = campo.value.trim(); campo.value = "";
+    if (!codigo) return;
+    fetch(form.dataset.identificar + "?codigo=" + encodeURIComponent(codigo))
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        var livre = d.ok ? d.chaves.find(function (k) { return !bipados[k]; }) : null;
+        if (livre) {
+          bipados[livre] = true;
+          resultado.style.color = "var(--verde)";
+          resultado.textContent = "✔ " + codigo + " — marcado para devolver.";
+        } else {
+          resultado.style.color = "var(--vermelho)";
+          resultado.textContent = d.ok ? ("✖ " + codigo + " — já bipado.") : ("✖ " + d.mensagem);
+        }
+        atualizar();
+      })
+      .catch(function () { resultado.textContent = "Falha de conexão — bipe de novo."; });
+  });
+  form.addEventListener("submit", function (e) {
+    atualizar();
+    var faltam = linhas.length - campos.querySelectorAll("input").length;
+    var como = modo() === "bipando" ? "não foram bipados" : "foram desmarcados";
+    if (faltam > 0 && !confirm(faltam + " item(ns) " + como + " e vão continuar com o paciente (pendência da sala). Finalizar assim mesmo?")) {
+      e.preventDefault(); e.stopImmediatePropagation(); return;
+    }
+    if (faltam > 0) delete form.dataset.confirmar;   // já perguntou
+  }, true);
+})();
+</script>
+{% endif %}
+{% endblock %}

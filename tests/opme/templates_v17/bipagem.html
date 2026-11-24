@@ -1,0 +1,612 @@
+{% extends "base.html" %}
+{% block titulo %}{{ op.titulo }} · {{ APP_TITLE }}{% endblock %}
+
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <div>
+    <h1>{{ op.titulo }}</h1>
+    {% if operacao != 'dispensar_sala' %}<p>{{ op.ajuda }}</p>{% endif %}
+    {% if atendimento %}
+      <p><strong>{{ descricao_atendimento }}</strong></p>
+    {% endif %}
+  </div>
+  <div class="acoes">
+    {% if atendimento %}
+      {% if operacao == 'registrar_uso' and atendimento.status == 'aberto' and not atendimento.uso_finalizado_em %}
+      <a class="botao" data-sem-foco="1" href="/sala-procedimento/atendimento/{{ atendimento.id_atendimento }}/concluir">Finalizar materiais utilizados</a>
+      {% endif %}
+      {% if operacao != 'dispensar_sala' %}
+      <a class="botao secundario" data-sem-foco="1" href="/{{ op.modulo }}/atendimento/{{ atendimento.id_atendimento }}">Ver atendimento</a>
+      {% endif %}
+      {% if operacao == 'registrar_uso' and atendimento.status == 'aberto' and not atendimento.uso_finalizado_em and resumo and not resumo.utilizados %}
+      <a class="botao secundario" data-sem-foco="1" href="/sala-procedimento/atendimento/{{ atendimento.id_atendimento }}#cancelar">Procedimento cancelado</a>
+      {% endif %}
+    {% endif %}
+    {% if operacao == 'dispensar_sala' %}
+    {% if atendimento %}<form method="post" action="/farmacia/atendimento/{{ atendimento.id_atendimento }}/finalizar-dispensa" style="display:inline">
+      <button class="botao" data-sem-foco="1">Finalizar dispensa</button></form>{% endif %}
+    {% if atendimento and atendimento.status == 'aberto' and resumo and not resumo.utilizados %}<a class="botao secundario" data-sem-foco="1" href="#cancelar">Procedimento cancelado</a>{% endif %}
+    <a class="botao secundario" data-sem-foco="1" href="/farmacia/atendimentos">Outro paciente</a>
+    {% else %}
+    <a class="botao secundario" data-sem-foco="1" href="/{{ op.modulo }}">Voltar</a>
+    {% endif %}
+  </div>
+</div>
+{% if operacao == 'dispensar_sala' and atendimento and atendimento.status == 'aberto' and resumo and not resumo.utilizados %}
+  {% if resumo.na_sala %}
+  <details class="cartao" id="cancelar" style="margin-top:1rem" hidden>
+    <summary style="cursor:pointer"><strong>Procedimento cancelado?</strong></summary>
+    <p class="pequeno" style="margin-top:.6rem">A sala já confirmou o recebimento de {{ resumo.na_sala }} item(ns)
+      deste paciente. Nesse caso o cancelamento é feito pela <strong>sala de procedimento</strong>
+      (na ficha do atendimento) — o material volta direto para a farmácia do mesmo jeito.</p>
+  </details>
+  <script>(function () { function abrir() { if (location.hash !== "#cancelar") return;
+    var d = document.getElementById("cancelar"); d.hidden = false; d.open = true; d.scrollIntoView(); }
+    abrir(); window.addEventListener("hashchange", abrir); })();</script>
+  {% else %}
+  {% set cancelar_acao = "/farmacia/atendimento/" ~ atendimento.id_atendimento ~ "/cancelar" %}
+  {% set cancelar_dispensados = resumo.transito_sala %}
+  {% set cancelar_voltar = "/bipagem/dispensar_sala?atendimento=" ~ atendimento.id_atendimento %}
+  {% set cancelar_oculto = True %}
+  {% include "_cancelar_procedimento.html" %}
+  {% endif %}
+{% endif %}
+
+{% if resumo and not (operacao in ('dispensar_sala', 'registrar_uso')) %}
+<div class="trilha">
+  <div class="etapa destaque"><strong data-resumo="utilizados">{{ resumo.utilizados }}</strong> utilizados neste paciente</div>
+</div>
+{% endif %}
+
+<div id="tela-bipagem" class="bipagem"
+     data-operacao="{{ operacao }}"
+     data-atendimento="{{ atendimento.id_atendimento if atendimento else '' }}"
+     data-farmacia="{{ farmacia }}"
+     data-paciente="{{ ('Prontuário ' ~ atendimento.prontuario ~ (' · ' ~ atendimento.paciente if atendimento.paciente else '')) if atendimento else '' }}">
+
+  <div>
+    <div class="caixa-scanner">
+      {% if op.define_farmacia %}
+        <div class="campo" style="margin-bottom:1rem">
+          <label class="obrigatorio" for="farmacia-destino">Farmácia de destino</label>
+          <select id="farmacia-destino" data-sem-foco="1">
+            {% for chave, rotulo in farmacias.items() %}
+              <option value="{{ chave }}">{{ rotulo }}</option>
+            {% endfor %}
+          </select>
+          <div class="dica">
+            Os estoques das duas farmácias são separados. Confira o destino antes de
+            começar a bipar — todos os itens desta sessão vão para a farmácia escolhida.
+          </div>
+        </div>
+      {% elif op.escopo_farmacia %}
+        <div class="aviso" style="margin-bottom:1rem">
+          Trabalhando na <strong>{{ farmacias[farmacia] }}</strong>.
+          <a href="/farmacia">trocar de farmácia</a>
+        </div>
+      {% endif %}
+
+      {% if op.confirmacao_papel %}
+        {# A confirmação vem ANTES da leitura de propósito: o campo do leitor
+           fica bloqueado até a entrega ser aberta, senão o reflexo de quem opera
+           é bipar primeiro e levar uma tarja vermelha que parece defeito. #}
+        <div class="aviso info" id="entrega-fechada" style="margin-bottom:1rem">
+          <strong>Confirmação de quem recebe.</strong> {{ op.confirmacao_aviso }}
+          {% if confirmadores %}
+            {% if operacao == 'devolver_nao_utilizado' %}
+              <div class="campo" style="margin-top:.6rem">
+                <label class="obrigatorio" for="devolvido-por">Quem está devolvendo</label>
+                <input type="text" id="devolvido-por" data-sem-foco="1" autocomplete="off"
+                       value="{{ usuario_atual.nome or '' }}"
+                       placeholder="nome de quem entrega o material à farmácia">
+                <div class="dica">Nome completo de quem está entregando o material agora. Fica
+                  gravado na auditoria junto com quem recebe.</div>
+              </div>
+            {% endif %}
+            <div class="campo" style="margin-top:.6rem">
+              <label class="obrigatorio" for="usuario-responsavel">Quem está recebendo</label>
+              <select id="usuario-responsavel" data-sem-foco="1">
+                <option value="">— escolha o {{ op.confirmacao_quem }} —</option>
+                {% for c in confirmadores %}
+                  <option value="{{ c.username }}">{{ c.nome }}{% if c.setor %} · {{ c.setor }}{% endif %}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="campo">
+              <label class="obrigatorio" for="senha-responsavel">Senha de quem está recebendo</label>
+              <input type="password" id="senha-responsavel" data-sem-foco="1" autocomplete="off"
+                     placeholder="digitada pela própria pessoa, aqui">
+            </div>
+            <button type="button" class="botao" id="abrir-entrega" data-sem-foco="1">
+              {{ 'Abrir devolução' if operacao == 'devolver_nao_utilizado' else 'Abrir entrega' }}
+            </button>
+            <div class="dica" style="margin-top:.5rem">
+              A senha é digitada uma vez e vale para os materiais desta {{ 'devolução' if operacao == 'devolver_nao_utilizado' else 'entrega' }}.
+              A entrega fica aberta na tela, com o nome de quem confirmou, e se
+              encerra sozinha depois de alguns minutos parada.
+            </div>
+          {% else %}
+            <div class="dica" style="margin-top:.6rem">
+              Nenhum usuário ativo com o papel de {{ op.confirmacao_quem }} está
+              cadastrado — sem isso não há quem confirme o recebimento. Fale com
+              a administração antes de continuar.
+            </div>
+          {% endif %}
+        </div>
+
+        <div class="aviso sucesso" id="entrega-aberta" hidden style="margin-bottom:1rem">
+          <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
+            <div style="flex:1 1 auto;min-width:14rem">
+              <strong>{{ 'Devolução aberta.' if operacao == 'devolver_nao_utilizado' else 'Entrega aberta.' }}</strong>
+              {% if operacao == 'devolver_nao_utilizado' %}
+                Devolvido por <b id="entrega-devolvente"></b> · recebido por <b id="entrega-nome"></b> —
+              {% else %}
+                Conferida por <b id="entrega-nome"></b> —
+              {% endif %}
+              <span id="entrega-contagem">nenhum material bipado ainda</span>.
+            </div>
+            <button type="button" class="botao secundario pequeno" id="encerrar-entrega"
+                    data-sem-foco="1">{{ 'Encerrar devolução' if operacao == 'devolver_nao_utilizado' else 'Encerrar entrega' }}</button>
+          </div>
+        </div>
+      {% endif %}
+
+      {% if operacao == 'devolver_nao_utilizado' %}
+        {# v17 — devolução em duas etapas: a sala bipa (aqui ou na porta da
+           farmácia) e a farmácia confirma com a senha depois. #}
+        <div class="campo" style="margin-bottom:.8rem">
+          <label for="devolvido-por">Devolvido por</label>
+          <input type="text" id="devolvido-por" data-sem-foco="1" readonly tabindex="-1"
+                 value="{{ usuario_atual.nome or usuario_atual.username }}"
+                 style="background:var(--cinza-claro, #eef1f4);cursor:not-allowed">
+          <div class="dica">É o usuário logado — vem do login e não pode ser alterado. Fica gravado na auditoria
+            junto com quem recebe na farmácia. Se outra pessoa for devolver, ela entra com o próprio usuário.</div>
+        </div>
+        <div class="aviso" style="margin-bottom:.8rem">
+          <strong>1.</strong> Bipe o que voltou sem uso — aqui na sala ou na porta da farmácia.
+          <strong>Caixa de consignado?</strong> Bipe o código da CAIXA e digite quantos itens estão voltando.<br>
+          <strong>2.</strong> A farmácia confere e confirma com a senha: clique em “Confirmar com a farmácia”
+          se ela estiver junto, ou deixe — a devolução fica em Farmácia → Devoluções a confirmar.
+        </div>
+        <div class="aviso info" id="devolucao-pendente" style="margin-bottom:1rem" {% if not devolucao_itens %}hidden{% endif %}>
+          <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
+            <div style="flex:1 1 auto;min-width:14rem">
+              <strong>Aguardando a farmácia:</strong>
+              <span id="devolucao-contagem">{{ devolucao_itens|length }} registro(s) bipado(s)</span>
+            </div>
+            <a class="botao" data-sem-foco="1" href="/devolucoes/atendimento/{{ atendimento.id_atendimento }}">Confirmar com a farmácia</a>
+          </div>
+          <table style="margin-top:.6rem">
+            <tbody id="pendente-lista" data-voltar="/bipagem/devolver_nao_utilizado?atendimento={{ atendimento.id_atendimento }}">
+              {% for i in devolucao_itens %}
+              <tr>
+                <td class="pequeno">{% if i.tipo == 'caixa' %}<strong>Caixa {{ i.id_caixa }}</strong> — {{ i.quantidade }} item(ns){% else %}{{ i.descritivo_hospital or i.xProd }} <span class="mono suave">lote {{ i.nLote or '—' }}</span>{% endif %}</td>
+                <td class="pequeno suave">{{ i.bipado_em|data_hora_br }} · {{ i.devolvido_por }}</td>
+                <td style="text-align:right">
+                  <form method="post" action="/devolucoes/item/{{ i.id_item }}/remover" style="display:inline">
+                    <input type="hidden" name="voltar" value="/bipagem/devolver_nao_utilizado?atendimento={{ atendimento.id_atendimento }}">
+                    <button class="botao secundario pequeno" data-sem-foco="1">tirar da devolução</button>
+                  </form>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% endif %}
+      {% if operacao == 'dispensar_sala' %}
+        {# v17 — dispensação: a farmácia bipa; a sala confirma só com a senha (na tela da Sala). #}
+        <div class="aviso" style="margin-bottom:.8rem">
+          Bipe cada OPME separado para este paciente. <strong>Caixa de consignado?</strong>
+          Bipe o código da CAIXA — vai inteira.
+        </div>
+      {% endif %}
+      {% if operacao == 'registrar_uso' and trava_sala %}
+        <div class="aviso erro" style="margin-bottom:1rem;border:3px solid var(--vermelho, #b3261e)">
+          <strong>BIPAGEM BLOQUEADA neste prontuário.</strong> A farmácia dispensou material para este
+          paciente e o recebimento ainda não foi confirmado. Confirme com a senha e depois bipe:
+          <ul style="margin:.4rem 0 0 1.1rem">
+            {% for t in trava_sala %}
+              <li>Prontuário <strong>{{ t.prontuario }}</strong>{% if t.paciente %} · {{ t.paciente }}{% endif %}
+                — {{ t.qtd }} item(ns) ·
+                <a href="/dispensacoes/{{ t.id_dispensacao }}" data-sem-foco="1"><strong>confirmar recebimento</strong></a>
+                ou, se o procedimento não vai acontecer,
+                <a href="/sala-procedimento/atendimento/{{ t.id_atendimento }}#cancelar" data-sem-foco="1"><strong>procedimento cancelado</strong></a>
+                (o material volta para a farmácia)</li>
+            {% endfor %}
+          </ul>
+        </div>
+      {% endif %}
+      {% if operacao == 'registrar_uso' and complemento_pendente %}
+        <div class="aviso info" style="margin-bottom:1rem">
+          <strong>A farmácia dispensou mais {{ complemento_pendente|length }} item(ns) para este paciente.</strong>
+          Pode bipar normalmente — a ciência desses itens é dada ao <strong>finalizar os materiais utilizados</strong>.
+        </div>
+      {% endif %}
+      {% if operacao == 'registrar_uso' and atendimento and atendimento.uso_finalizado_em %}
+        <div class="aviso erro" style="margin-bottom:1rem">
+          <strong>Materiais utilizados já finalizados.</strong> Só é possível bipar o que a farmácia não
+          recebeu de volta (se foi usado neste paciente). O que está na sala, leve à farmácia.
+        </div>
+      {% endif %}
+      {% if operacao == 'registrar_uso' %}
+        <div class="aviso" id="caixa-ativa-vazia" style="margin-bottom:.8rem">
+          <strong>Item de caixa de consignado?</strong> Bipe primeiro o código da CAIXA e, em
+          seguida, o item. Itens soltos (fora de caixa) são bipados direto.
+        </div>
+        <div class="caixa-ativa" id="caixa-ativa" hidden>
+          <div class="caixa-ativa-texto">
+            <span class="caixa-ativa-rotulo">CAIXA ATIVA</span>
+            <strong class="mono" id="caixa-ativa-codigo"></strong>
+            <span id="caixa-ativa-nome"></span>
+            <div class="pequeno">Os itens bipados agora saem desta caixa. Terminou? Clique em “Sair da caixa”
+              ou bipe outra caixa.</div>
+          </div>
+          <button type="button" class="botao secundario pequeno" id="sair-caixa" data-sem-foco="1">Sair da caixa</button>
+        </div>
+      {% endif %}
+      <label for="codigo">Bipe o código de barras</label>
+      <input type="text" id="codigo" autocomplete="off" autocapitalize="off"
+             spellcheck="false" inputmode="text"
+             {% if op.confirmacao_papel %}disabled
+             placeholder="confirme a entrega acima para liberar a leitura"
+             {% else %}placeholder="aguardando leitura…"{% endif %}>
+      {% if motivos_selecao_manual %}
+      <div class="pequeno" style="margin-top:.45rem">
+        <button type="button" id="abrir-selecao-manual" data-sem-foco="1"
+                style="background:none;border:0;padding:0;color:var(--azul, #0c3a67);text-decoration:underline;cursor:pointer;font:inherit">
+          Não consegue bipar? Selecionar pelo código AGHU</button>
+        <span class="suave">— só em caso excepcional; fica registrado com o motivo.</span>
+      </div>
+      {% if operacao == 'registrar_uso' and atendimento and atendimento.status == 'aberto' %}
+      <div class="pequeno" style="margin-top:.3rem">
+        <a href="/sala-procedimento/atendimento/{{ atendimento.id_atendimento }}/nao-cadastrado" data-sem-foco="1"
+           style="color:var(--vermelho, #b3261e)">Material não cadastrado no sistema?</a>
+        <span class="suave">— exceção das exceções: exige a senha da supervisão.</span>
+      </div>
+      {% endif %}
+      {% endif %}
+      <div id="ultimo-nao-registrado" class="pequeno" hidden
+           style="margin-top:.4rem;color:var(--vermelho, #b3261e);font-weight:600"></div>
+      <div class="pequeno suave" style="margin-top:.4rem">
+        O campo fica sempre ativo. Pode bipar um item atrás do outro sem clicar em nada.
+        Também aceita o número de série ou o ID da unidade digitado.
+      </div>
+      {% if operacao == 'registrar_uso' and uso_registrado is not none %}
+        <div class="aviso sucesso" id="uso-registrado" style="margin-top:1rem"
+             data-pode-excluir="{{ '1' if uso_registrado.pode_excluir else '' }}">
+          <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
+            <div style="flex:1 1 auto">
+              <strong>Já registrado como utilizado neste paciente:</strong>
+              <span id="uso-contagem">{{ uso_registrado.lista|length }} item(ns)</span>
+              <span class="pequeno suave">— o último bipado fica em cima.</span>
+            </div>
+          </div>
+          <datalist id="motivos-excluir-uso">
+            {% for m in motivos_excluir_uso %}<option value="{{ m }}">{% endfor %}
+          </datalist>
+          <table style="margin-top:.6rem">
+            <tbody id="uso-lista">
+              {% for i in uso_registrado.lista %}
+              <tr data-uso="{{ i.id_unidade }}">
+                <td class="pequeno"><span class="mono"><strong>AGHU {{ i.aghu }}</strong></span> · {{ i.produto }}<br><span class="mono suave">lote {{ i.lote }} · val. {{ i.validade }}</span>
+                  {% if i.caixa %}<span class="etiqueta cinza">caixa {{ i.caixa }}</span>{% endif %}</td>
+                <td class="pequeno suave">{{ i.quando }} · {{ i.por }}</td>
+                <td style="text-align:right">{% if uso_registrado.pode_excluir %}<button type="button" class="botao secundario pequeno" data-sem-foco="1" data-excluir-uso="{{ i.id_unidade }}">excluir</button>{% endif %}</td>
+              </tr>
+              {% else %}
+              <tr class="uso-vazio"><td class="pequeno suave" colspan="3">Nenhum material registrado ainda.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% endif %}
+      {% if operacao == 'dispensar_sala' and atendimento %}
+        <div class="cartao" id="painel-solicitacao" style="margin:1rem 0 0;padding:.9rem;border-left:5px solid var(--azul, #0c3a67)"
+             data-painel="/farmacia/atendimento/{{ atendimento.id_atendimento }}/solicitacao/painel">
+          {% set sol = solicitacao %}{% set modo = 'farmacia' %}
+          {% include "_solicitacao_painel.html" %}
+        </div>
+        {% if solicitacao.existe %}
+        <details class="cartao" id="finalizar" style="margin:1rem 0 0;border-left:5px solid var(--amarelo, #b26a00)">
+          <summary style="cursor:pointer"><strong>Finalizar a dispensa com item faltando</strong>
+            <span class="pequeno suave">— o motivo é obrigatório e a sala vê o que não veio</span></summary>
+          <form method="post" action="/farmacia/atendimento/{{ atendimento.id_atendimento }}/finalizar-dispensa" style="margin-top:.7rem">
+            <div class="campo"><label class="obrigatorio">Motivo</label>
+              <input type="text" name="motivo" list="motivos-faltas" data-sem-foco="1" placeholder="Ex.: sem estoque na farmácia">
+              <datalist id="motivos-faltas"><option value="Sem estoque na farmácia"><option value="Material substituído por similar (combinado com a sala)"><option value="Sala desistiu do item"><option value="Aguardando reposição do fornecedor"></datalist></div>
+            <button class="botao" data-sem-foco="1">Finalizar dispensa assim mesmo</button>
+          </form>
+        </details>
+        <script>if (location.hash === "#finalizar") { var f = document.getElementById("finalizar"); f.open = true; f.scrollIntoView(); }</script>
+        {% endif %}
+      {% endif %}
+      {% if operacao == 'dispensar_sala' %}
+        <div class="aviso info" id="devolucao-pendente" style="margin-top:1rem" {% if not dispensacao_itens %}hidden{% endif %}>
+          <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
+            <div style="flex:1 1 auto">
+              <strong>Saiu da farmácia — aguardando a confirmação da sala:</strong>
+              <span id="devolucao-contagem">{{ dispensacao_itens|length }} item(ns)</span>
+            </div>
+            <a class="botao secundario pequeno" data-sem-foco="1" href="/dispensacoes/atendimento/{{ atendimento.id_atendimento }}/pdf">Baixar PDF</a>
+          </div>
+          <table style="margin-top:.6rem">
+            <tbody id="pendente-lista">
+              {% for i in dispensacao_itens %}
+              <tr>
+                <td class="pequeno"><span class="mono"><strong>AGHU {{ i.codigo_aghu or '—' }}</strong></span> · {{ i.descritivo_hospital or i.xProd }}<br><span class="mono suave">lote {{ i.nLote or '—' }} · val. {{ i.dVal|data_br or '—' }}</span>
+                  {% if i.id_caixa %}<span class="etiqueta cinza">caixa {{ i.id_caixa }}</span>{% endif %}</td>
+                <td class="pequeno suave">{{ i.bipado_em|data_hora_br }} · {{ i.bipado_por }}</td>
+                <td style="text-align:right">
+                  <form method="post" action="/dispensacoes/item/{{ i.id_item }}/remover" style="display:inline">
+                    <button class="botao secundario pequeno" data-sem-foco="1">{{ 'tirar a caixa' if i.id_caixa else 'tirar' }}</button>
+                  </form>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% endif %}
+
+      {% if exige_motivo %}
+        <div class="campo" style="margin-top:1rem">
+          <label class="obrigatorio" for="motivo">Motivo (aplicado a todas as leituras)</label>
+          <input type="text" id="motivo" data-sem-foco="1" placeholder="Ex.: embalagem violada">
+        </div>
+      {% elif motivo_opcional %}
+        <details id="extras" style="margin-top:1rem"><summary class="pequeno" style="cursor:pointer">Justificativa / observação <span class="suave">(se precisar)</span></summary>
+        <div class="campo" style="margin-top:.6rem">
+          <label for="motivo">Justificativa <span class="opcional">(só é exigida em caso excepcional)</span></label>
+          <input type="text" id="motivo" data-sem-foco="1"
+                 placeholder="preencha se o sistema pedir">
+          <div class="dica">
+            Se um material vencido ou de lote bloqueado chegar a ser usado, o registro é
+            aceito — não registrar seria pior —, mas exige justificativa e é sinalizado à gestão.
+          </div>
+        </div>
+      {% else %}
+        <input type="hidden" id="motivo" value="">
+        <details id="extras" style="margin-top:1rem"><summary class="pequeno" style="cursor:pointer">Observação <span class="suave">(se precisar)</span></summary>
+      {% endif %}
+      {% if exige_motivo %}<details id="extras" style="margin-top:.75rem"><summary class="pequeno" style="cursor:pointer">Observação <span class="suave">(se precisar)</span></summary>{% endif %}
+
+      <div class="campo" style="margin-top:.75rem">
+        <label for="observacao">Observação <span class="opcional">(opcional)</span></label>
+        <input type="text" id="observacao" data-sem-foco="1" placeholder="Fica registrada em cada leitura">
+      </div>
+      </details>
+
+
+      <div class="contador-grande" {% if operacao in ('dispensar_sala', 'registrar_uso') %}hidden{% endif %}>
+        <div><div class="numero" id="contador-lidos">0</div><div class="rotulo">lidos agora</div></div>
+        {% if op.mostra_pendentes %}
+        <div><div class="numero" id="contador-pendentes">{{ pendentes|length }}</div><div class="rotulo">ainda pendentes</div></div>
+        {% endif %}
+      </div>
+
+      <div id="resultado">{% if not (operacao in ('dispensar_sala', 'registrar_uso')) %}
+        <div class="resultado-linha" style="background:var(--cinza-claro)">
+          <div class="icone">⌖</div>
+          <div><div class="titulo">Pronto para ler</div>
+               <div class="detalhe">O resultado de cada leitura aparece aqui.</div></div>
+        </div>
+        {% endif %}</div>
+
+      <div class="linha-botoes">
+        <button type="button" class="botao secundario" id="btn-confirmar" data-sem-foco="1">
+          Confirmar código digitado
+        </button>
+        <label class="pequeno" style="display:flex;align-items:center;gap:.4rem;font-weight:400">
+          <input type="checkbox" id="som" checked data-sem-foco="1" style="width:auto"> som de confirmação
+        </label>
+      </div>
+    </div>
+
+    <div class="cartao" style="margin-top:1rem" {% if (operacao == 'registrar_uso' and uso_registrado is not none) or (operacao == 'dispensar_sala' and atendimento) %}hidden{% endif %}>
+      <h2>Lidos nesta sessão</h2>
+      <ul class="lista-bipados" id="lista-bipados"></ul>
+      <p class="vazio">Nenhuma leitura ainda.</p>
+    </div>
+  </div>
+
+  <aside>
+    {% if caixas_pendentes is defined and caixas_pendentes %}
+      {# A farmácia recebe uma caixa fechada, não 43 itens. Mostrar a caixa aqui é
+         o que faz a tela falar a mesma língua do que está em cima da bancada. #}
+      <div class="cartao" style="border-left:5px solid var(--roxo);margin-bottom:1rem">
+        <h2>{{ caixas_pendentes|length }} caixa(s) nesta etapa</h2>
+        <p class="suave pequeno">
+          Bipe o código da caixa e tudo que está dentro se move de uma vez.
+        </p>
+        {% for c in caixas_pendentes %}
+          <div style="padding:.5rem 0;border-bottom:1px solid var(--borda)">
+            <strong class="mono">{{ c.id_caixa }}</strong>
+            <span class="suave pequeno">{{ c.especialidade }}</span><br>
+            <span class="pequeno">{{ c.nome }}</span><br>
+            <span class="suave pequeno">{{ c.total }} item(ns) dentro ·
+              <a href="/caixas/{{ c.id_caixa }}">ver conteúdo</a></span>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    {% if not op.mostra_pendentes %}
+      {# Aqui não existe conjunto esperado: o "pendente" seria o estoque inteiro.
+         No lugar, uma busca para conferir se o item está mesmo disponível. #}
+      <div class="cartao">
+        <h2>Consultar antes de bipar</h2>
+        <p class="suave pequeno">
+          {% if operacao == 'devolver_nao_utilizado' %}Aqui entra só material que não foi registrado como utilizado. Há{% else %}Esta operação retira do estoque, então não há lista de pendências — há{% endif %}
+          <strong>{{ elegiveis }}</strong> item(ns) disponíveis no {{ 'estoque da farmácia' if operacao == 'dispensar_sala' else 'estoque' }}.
+          Use a busca só se precisar conferir se algo está disponível.
+        </p>
+
+        <form method="get" action="/bipagem/{{ operacao }}">
+          <div class="campo">
+            <label>Código AGHU, descrição, lote ou código de barras</label>
+            <input type="text" name="busca" value="{{ busca }}" data-sem-foco="1"
+                   placeholder="ex.: AGHU-101 ou parafuso">
+          </div>
+          <button class="botao secundario pequeno" data-sem-foco="1">Buscar</button>
+        </form>
+
+        {% if busca %}
+          <div class="pendentes-lista" style="margin-top:.9rem">
+            {% for item in resultados %}
+              <div style="padding:.5rem 0;border-bottom:1px solid var(--borda)">
+                <strong class="mono">{{ item.aghu }}</strong>
+                <span class="pequeno">{{ item.produto }}</span><br>
+                <span class="suave pequeno">
+                  Lote {{ item.lote }} · val. {{ item.validade }}
+                  {% if item.iguais > 1 %} · {{ item.iguais }} unidades iguais{% endif %}
+                </span>
+              </div>
+            {% else %}
+              <p class="vazio">Nada encontrado para “{{ busca }}” nesta situação.</p>
+            {% endfor %}
+          </div>
+        {% endif %}
+      </div>
+    {% else %}
+    <div class="cartao">
+      <h2>Ainda pendente</h2>
+      <p class="suave pequeno">
+        {% if op.exige_atendimento %}
+          Materiais deste atendimento que ainda não passaram por esta etapa.
+        {% else %}
+          Materiais que foram enviados e aguardam a sua conferência.
+        {% endif %}
+      </p>
+
+      {% if pendentes %}
+        <form method="post" action="/bipagem/{{ operacao }}/pendencias"
+              data-confirmar="Confirmar o tratamento dos itens marcados?">
+          <input type="hidden" name="atendimento" value="{{ atendimento.id_atendimento if atendimento else '' }}">
+
+          <div class="pendentes-lista" id="pendentes">
+            <label class="pequeno" style="font-weight:400;display:flex;gap:.4rem;align-items:center;padding:.3rem 0">
+              <input type="checkbox" id="marcar-todos" data-sem-foco="1" style="width:auto"> marcar todos
+            </label>
+            {% for item in pendentes %}
+              <label data-pendente="{{ item.id_unidade }}"
+                     style="display:flex;gap:.5rem;align-items:flex-start;padding:.5rem 0;border-bottom:1px solid var(--borda);font-weight:400">
+                <input type="checkbox" name="ids" value="{{ item.id_unidade }}" data-sem-foco="1" style="width:auto;margin-top:.25rem">
+                <span style="flex:1;min-width:0">
+                  <strong class="mono pequeno">{{ item.aghu }}</strong>
+                  <span class="pequeno">{{ item.produto }}</span><br>
+                  <span class="suave pequeno">
+                    Lote {{ item.lote }} · val. {{ item.validade }}
+                    {% if item.prontuario %} · prontuário {{ item.prontuario }}{% endif %}
+                    {% if item.id_caixa is defined and item.id_caixa %} · <strong>na caixa {{ item.id_caixa }}</strong>{% endif %}
+                  </span>
+                </span>
+              </label>
+            {% endfor %}
+          </div>
+
+          <div class="campo" style="margin-top:.9rem">
+            <label class="obrigatorio pequeno">O que houve com os itens marcados?</label>
+            <input type="text" name="motivo" data-sem-foco="1" placeholder="Ex.: não chegou junto com a remessa">
+          </div>
+          <div class="campo">
+            <label class="pequeno">Destino</label>
+            <select name="destino" data-sem-foco="1">
+              {% if operacao == 'conferir_farmacia' %}
+                <option value="em_estoque_recebimento">Voltar ao Almoxarifado (não chegou)</option>
+              {% elif operacao == 'conferir_sala' %}
+                <option value="em_estoque_farmacia">Voltar à Farmácia (não chegou à sala)</option>
+              {% elif operacao == 'conferir_retorno' %}
+                <option value="divergencia">Marcar divergência (não retornou)</option>
+              {% endif %}
+              <option value="divergencia">Marcar como divergência</option>
+              <option value="baixado">Baixar item (perda/avaria)</option>
+            </select>
+          </div>
+          <button class="botao secundario" style="width:100%" data-sem-foco="1">
+            Encerrar etapa tratando os marcados
+          </button>
+        </form>
+      {% else %}
+        <p class="vazio">Nada pendente nesta etapa.</p>
+      {% endif %}
+    </div>
+    {% endif %}
+  </aside>
+</div>
+{% if operacao == 'devolver_nao_utilizado' %}
+<div id="quantidade-caixa" class="confirmacao-bip" hidden role="dialog" aria-modal="true" aria-labelledby="qc-titulo">
+  <div class="confirmacao-bip-janela" style="border-color:var(--azul)">
+    <h2 id="qc-titulo" style="color:var(--azul)">Devolução da caixa <span class="mono" id="qc-codigo"></span></h2>
+    <p class="confirmacao-bip-produto" id="qc-nome"></p>
+    <div class="campo" style="max-width:260px;margin:0 auto">
+      <label for="qc-quantidade" class="obrigatorio">Quantos itens estão voltando nesta caixa?</label>
+      <input type="number" id="qc-quantidade" min="0" step="1" inputmode="numeric" data-sem-foco="1"
+             style="font-size:1.6rem;text-align:center">
+    </div>
+    <p class="suave pequeno">Conte os itens dentro da caixa. Se não bater com o sistema, a devolução
+       não é registrada e a caixa fica bloqueada para conferência.</p>
+    <div class="linha-botoes" style="justify-content:center">
+      <button type="button" class="botao" id="qc-confirmar" data-sem-foco="1">Registrar devolução da caixa</button>
+      <button type="button" class="botao secundario" id="qc-cancelar" data-sem-foco="1">Cancelar</button>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{# v17 — confirmação grande de cada leitura: verde quando registrou (some
+   sozinha), vermelha quando NÃO registrou (precisa de OK). #}
+<div id="confirmacao-bip" class="confirmacao-bip" hidden role="alertdialog" aria-live="assertive">
+  <div class="confirmacao-bip-janela">
+    <div class="confirmacao-bip-icone" id="confirmacao-bip-icone"></div>
+    <h2 id="confirmacao-bip-titulo"></h2>
+    <p class="confirmacao-bip-produto" id="confirmacao-bip-produto"></p>
+    <p class="confirmacao-bip-detalhe" id="confirmacao-bip-detalhe"></p>
+    <div id="confirmacao-bip-alertas"></div>
+    <button type="button" class="botao" id="confirmacao-bip-ok" data-sem-foco="1" hidden>OK, entendi</button>
+    <div class="confirmacao-bip-dica" id="confirmacao-bip-dica"></div>
+  </div>
+</div>
+
+{% if operacao == 'registrar_uso' %}
+{# v17 — aviso de entrega da caixa ao paciente. Fica escondido até o servidor
+   responder que o material bipado está na lista da Administração. #}
+
+<div id="alerta-entrega" class="alerta-entrega" hidden role="alertdialog" aria-modal="true"
+     aria-labelledby="alerta-entrega-titulo">
+  <div class="alerta-entrega-janela">
+    <div class="alerta-entrega-icone">!</div>
+    <h2 id="alerta-entrega-titulo">RECOLHER A CAIXA E ENTREGAR AO PACIENTE</h2>
+    <p class="alerta-entrega-produto" id="alerta-entrega-produto"></p>
+    <p class="alerta-entrega-detalhe" id="alerta-entrega-detalhe"></p>
+    <p>Este material exige que a caixa/embalagem seja guardada e entregue ao paciente.</p>
+    <button type="button" class="botao alerta-entrega-botao" id="alerta-entrega-ciente" data-sem-foco="1">
+      Estou ciente — vou entregar a caixa ao paciente
+    </button>
+  </div>
+</div>
+{% endif %}
+{% if motivos_selecao_manual %}
+<div id="selecao-manual" class="confirmacao-bip escolha" hidden role="dialog" aria-modal="true">
+  <div class="confirmacao-bip-janela" style="text-align:left;border-color:#d18f00;max-width:780px">
+    <h2 style="color:#8a5a00;margin-top:0">Selecionar pelo código AGHU</h2>
+    <p class="pequeno">Use <strong>só quando não for possível bipar</strong>. A escolha passa pelas mesmas
+      conferências do bip e fica registrada com o motivo e o seu usuário.</p>
+    <div class="grade grade-2">
+      <div class="campo"><label class="obrigatorio" for="sm-motivo">Por que não foi possível bipar?</label>
+        <select id="sm-motivo" data-sem-foco="1">
+          <option value="">— escolha —</option>
+          {% for m in motivos_selecao_manual %}<option>{{ m }}</option>{% endfor %}
+        </select></div>
+      <div class="campo"><label class="obrigatorio" for="sm-aghu">Código AGHU</label>
+        <div style="display:flex;gap:.5rem">
+          <input type="text" id="sm-aghu" data-sem-foco="1" inputmode="numeric" autocomplete="off" placeholder="ex.: 89846">
+          <button type="button" class="botao secundario" id="sm-buscar" data-sem-foco="1">Buscar</button>
+        </div></div>
+    </div>
+    <div id="sm-lista" style="margin-top:.6rem"></div>
+    <button type="button" class="botao secundario" id="sm-cancelar" data-sem-foco="1" style="margin-top:.8rem">Cancelar</button>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

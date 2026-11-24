@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block titulo %}Almoxarifado · {{ APP_TITLE }}{% endblock %}
+
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <div>
+    <h1>Almoxarifado</h1>
+    <p>Entrada dos materiais (nota fiscal, cadastro manual ou planilha de lotes), guarda do estoque e
+       envio para as farmácias do Bloco Cirúrgico e da Hemodinâmica.</p>
+  </div>
+</div>
+
+{% if alertas %}
+<div class="cartao" style="margin-bottom:1.25rem;border-left:5px solid var(--vermelho)">
+  <h2>{{ alertas|length }} alerta(s) do almoxarifado</h2>
+  <p class="suave pequeno">
+    Confira com atenção redobrada.
+  </p>
+  {% for a in alertas %}
+    <div style="padding:.6rem 0;border-bottom:1px solid var(--borda)">
+      <p class="pequeno mono" style="margin:0;white-space:pre-wrap">{{ a.mensagem }}</p>
+      {% set detalhes = itens_alerta(a) %}
+      {% if detalhes %}
+        <div class="pequeno" style="margin:.3rem 0">
+          Abrir cada item:
+          {% for item in detalhes %}
+            <a href="/consultas/item/{{ item.id_unidade }}">{{ item.codigo_aghu or item.xProd }}</a>{% if not loop.last %} ·{% endif %}
+          {% endfor %}
+        </div>
+      {% elif a.link %}
+        <div class="pequeno" style="margin:.3rem 0"><a href="{{ a.link }}">Abrir</a></div>
+      {% endif %}
+      <span class="suave pequeno">{{ a.criado_em|data_hora_br }}</span>
+      <form method="post" action="/alertas/{{ a.id_alerta }}/resolver" style="display:inline;margin-left:.5rem">
+        <button class="botao secundario pequeno">Marcar como resolvido</button>
+      </form>
+    </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="grade grade-3">
+  {% if nao_cadastrados %}
+  <a class="acao-card alta" href="/almoxarifado/nao-cadastrados">
+    <h3>Material não cadastrado usado na sala</h3>
+    <div class="numero">{{ nao_cadastrados }}</div>
+    <p class="rotulo">Exceção: a sala usou material que não estava no sistema. Complete o cadastro (AGHU, NF, tipo).</p>
+  </a>
+  {% endif %}
+  <a class="acao-card cor-verde" href="/almoxarifado/nf">
+    <h3>1. Dar entrada por nota fiscal</h3>
+    <p class="rotulo">Importe o XML da NF-e e transforme cada item em unidades rastreáveis.</p>
+    {% if notas %}<span class="etiqueta amarelo">{{ notas|length }} NF com item pendente</span>{% endif %}
+  </a>
+  <a class="acao-card cor-verde" href="/almoxarifado/manual">
+    <h3>1b. Cadastro manual</h3>
+    <p class="rotulo">Para consignados, doações e itens sem XML disponível. Item sem
+       código de barras ganha um código interno e etiqueta QR.</p>
+  </a>
+  <a class="acao-card cor-verde{{ ' alta' if pendentes_planilha }}" href="/almoxarifado/planilha">
+    <h3>1c. Planilha de lotes do AGHU</h3>
+    {% if pendentes_planilha %}<div class="numero">{{ pendentes_planilha }}</div>{% endif %}
+    <p class="rotulo">Importe a planilha de lotes. Cada item entra no estoque quando for bipado.</p>
+  </a>
+  <a class="acao-card cor-verde{{ ' alta' if envios_pendencias }}" href="/almoxarifado/envios">
+    <h3>2. Enviar para a farmácia</h3>
+    {% if envios_pendencias %}<div class="numero">{{ envios_pendencias }}</div>{% endif %}
+    <p class="rotulo">Bipe o material para a farmácia do Bloco ou da Hemodinâmica. A farmácia confere e dá ciência.
+      {% if envios_aguardando %}<br><span class="etiqueta amarelo">{{ envios_aguardando }} envio(s) aguardando a farmácia</span>{% endif %}
+      {% if envios_pendencias %}<br><span class="etiqueta vermelho">{{ envios_pendencias }} item(ns) não recebido(s) — tratar</span>{% endif %}</p>
+  </a>
+  <a class="acao-card cor-verde" href="/almoxarifado/etiquetas">
+    <h3>Etiquetas QR</h3>
+    <p class="rotulo">Imprimir ou reimprimir a etiqueta de itens sem código de barras.</p>
+  </a>
+  <a class="acao-card cor-azul" href="/consultas/itens?status=em_estoque_recebimento">
+    <h3>Estoque do almoxarifado</h3>
+    <div class="numero">{{ em_estoque }}</div>
+    <p class="rotulo">unidade(s) no almoxarifado, prontas para enviar à farmácia. Clique para ver com validade e classificação.</p>
+  </a>
+  <a class="acao-card cor-azul" href="/consultas/dispensas?tipo=envios">
+    <h3>Relatório de dispensas</h3>
+    <p class="rotulo">Tudo que foi enviado às farmácias (e delas para a sala) no período. Planilha e PDF.</p>
+  </a>
+  <a class="acao-card cor-amarelo" href="/almoxarifado/correcoes">
+    <h3>Corrigir cadastro</h3>
+    <p class="rotulo">Ajuste lote, validade ou fornecedor. Toda correção fica registrada com motivo.</p>
+  </a>
+  <a class="acao-card cor-amarelo" href="/bipagem/devolver_fornecedor">
+    <h3>Devolver ao fornecedor</h3>
+    <p class="rotulo">Saída de itens que voltam para o fornecedor.</p>
+  </a>
+</div>
+
+{% if notas %}
+<div class="cartao" style="margin-top:1.5rem">
+  <h2>Notas com itens pendentes de entrada</h2>
+  <div class="tabela-rolagem">
+    <table>
+      <thead><tr><th>NF</th><th>Fornecedor</th><th>Importada em</th><th class="num">Pendentes</th><th></th></tr></thead>
+      <tbody>
+        {% for nota in notas %}
+          <tr>
+            <td><strong>{{ nota.numero_nf }}</strong></td>
+            <td>{{ nota.fornecedor }}</td>
+            <td class="pequeno">{{ nota.data_importacao|data_hora_br }}</td>
+            <td class="num">{{ nota.pendentes }} de {{ nota.total }}</td>
+            <td><a class="botao pequeno" href="/almoxarifado/nf/{{ nota.chave_nf }}">Dar entrada</a></td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+{% block titulo %}Solicitação de OPME · {{ atendimento.prontuario }} · {{ APP_TITLE }}<script>
+  // Trocar de formulário com quantidade digitada e não gravada: grava antes.
+  function trocarFormulario(sel) {
+    var f = document.getElementById("form-solicitacao");
+    var mudou = f && Array.prototype.some.call(f.querySelectorAll("input"), function (i) {
+      return (i.type === "number" || i.type === "text") && i.value !== i.defaultValue;
+    });
+    if (mudou) {
+      var h = document.createElement("input");
+      h.type = "hidden"; h.name = "seguir"; h.value = "formulario:" + sel.value;
+      f.appendChild(h); f.submit();
+    } else { sel.form.submit(); }
+  }
+</script>
+{% endblock %}
+
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <div>
+    <h1>Solicitação de OPME</h1>
+    <p><strong>{{ descricao }}</strong>{% if atendimento.paciente %} · {{ atendimento.paciente }}{% endif %}</p>
+    <p class="pequeno">Preencha a quantidade só do que precisa. A farmácia vê a solicitação na hora, na tela de
+      dispensar, e cada material bipado dá o “check” na linha.</p>
+  </div>
+  <div class="acoes">
+    {% if pode_editar %}
+    <button class="botao secundario" form="form-solicitacao" name="seguir" value="gravar">Gravar solicitação</button>
+    <button class="botao" form="form-solicitacao" name="seguir" value="concluir">Concluir solicitação</button>
+    {% else %}
+    <a class="botao" href="/sala-procedimento/atendimento/{{ atendimento.id_atendimento }}">Voltar</a>
+    {% endif %}
+  </div>
+</div>
+
+{% if pode_editar %}
+<form method="get" class="cartao" style="display:flex;gap:.6rem;align-items:flex-end;flex-wrap:wrap">
+  <div class="campo" style="margin:0;flex:1 1 18rem"><label>Formulário</label>
+    <select name="formulario" onchange="trocarFormulario(this)">
+      {% for chave, f in formularios.items() %}
+      <option value="{{ chave }}" {% if chave == formulario %}selected{% endif %}>{{ f.titulo }}{% if chave == sugerido %} (sugerido){% endif %}{% if chave in usados %} · já pedido{% endif %}</option>
+      {% endfor %}
+    </select></div>
+  <button class="botao secundario">Abrir</button>
+</form>
+
+<form method="post" class="cartao" id="form-solicitacao" action="/sala-procedimento/atendimento/{{ atendimento.id_atendimento }}/solicitacao">
+  <input type="hidden" name="formulario" value="{{ formulario }}">
+  <h2>{{ formularios[formulario].titulo }}</h2>
+  <div style="display:flex;gap:.8rem;align-items:flex-end;flex-wrap:wrap;margin-bottom:.6rem;position:sticky;top:0;background:var(--branco, #fff);padding:.4rem 0;z-index:2">
+    <div class="campo" style="margin:0;flex:1 1 20rem">
+      <label for="busca-item">Buscar material pela descrição ou código AGHU (neste formulário, nos outros e no cadastro)</label>
+      <input type="search" id="busca-item" autocomplete="off" style="width:100%;font-size:1.05rem;padding:.6rem .7rem" placeholder="ex.: introdutor 6  ·  23265  ·  fio guia"
+             onkeydown="if(event.key==='Enter'){event.preventDefault();}">
+    </div>
+    <label class="pequeno" style="display:flex;align-items:center;gap:.35rem;font-weight:400;margin-bottom:.6rem">
+      <input type="checkbox" id="so-preenchidos" style="width:auto"> só os que já têm quantidade</label>
+  </div>
+  <p class="pequeno suave" id="busca-resultado" hidden></p>
+  <div id="busca-outros" hidden class="aviso info" style="margin:.2rem 0 .8rem"
+       data-url="/sala-procedimento/solicitacao/buscar?formulario={{ formulario }}"
+       data-incluir="/sala-procedimento/atendimento/{{ atendimento.id_atendimento }}/solicitacao/incluir"
+       data-painel="/sala-procedimento/atendimento/{{ atendimento.id_atendimento }}/solicitacao/painel"></div>
+  <table id="tabela-formulario">
+    <thead><tr><th>Cód. AGHU</th><th>Descrição</th><th style="width:7rem">Qtd. solicitada</th></tr></thead>
+    <tbody>
+      {% for l in linhas %}
+      <tr data-busca="{{ l.codigos }} {{ l.descricao }}">
+        <td class="mono pequeno">{{ l.codigos.replace(' ', ' / ') if l.codigos else '—' }}</td>
+        <td class="pequeno">{{ l.descricao }}
+          {% if l.pede_especificacao %}
+          <input type="text" name="espec_{{ l.linha }}" value="{{ l.especificacao }}" placeholder="tipo / tamanho"
+                 style="margin-top:.25rem;max-width:18rem">
+          {% endif %}</td>
+        <td><input type="number" name="qtd_{{ l.linha }}" min="0" max="999" inputmode="numeric"
+                   value="{{ l.quantidade or '' }}" style="width:6rem"></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <script>
+  (function () {
+    var busca = document.getElementById("busca-item");
+    var soPreenchidos = document.getElementById("so-preenchidos");
+    var aviso = document.getElementById("busca-resultado");
+    var linhas = Array.prototype.slice.call(document.querySelectorAll("#tabela-formulario tbody tr"));
+    // Outros formulários: para avisar "também está em…" quando não achar aqui.
+    var outros = {{ outros_formularios|tojson }};
+    function norm(t) {
+      return (t || "").toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .toUpperCase().replace(/[.,;:()\/\-]+/g, " ").replace(/\s+/g, " ").trim();
+    }
+    function casa(alvo, termos) { return termos.every(function (t) { return alvo.indexOf(t) >= 0; }); }
+    function filtrar() {
+      var termos = norm(busca.value).split(" ").filter(Boolean);
+      var visiveis = 0;
+      linhas.forEach(function (tr) {
+        var qtd = tr.querySelector('input[type="number"]');
+        var ok = casa(norm(tr.dataset.busca), termos) &&
+                 (!soPreenchidos.checked || (qtd && Number(qtd.value) > 0));
+        tr.hidden = !ok;
+        if (ok) visiveis += 1;
+      });
+      if (!termos.length) { aviso.hidden = true; return; }
+      var tambem = Object.keys(outros).filter(function (k) {
+        return outros[k].itens.some(function (d) { return casa(norm(d), termos); });
+      });
+      aviso.hidden = false;
+      aviso.innerHTML = (visiveis ? visiveis + " item(ns) encontrado(s) neste formulário." :
+                         "Nada encontrado neste formulário.") +
+        (visiveis ? "" : " Veja abaixo se está em outro formulário ou no cadastro de materiais.");
+    }
+    // Também procura nos OUTROS formulários e no cadastro de materiais: o que
+    // achar lá pode ser incluído direto na solicitação, sem trocar de formulário.
+    var outrosBox = document.getElementById("busca-outros"), timer = null, ultima = "";
+    function escH(t) { var d = document.createElement("div"); d.textContent = t == null ? "" : String(t); return d.innerHTML; }
+    function buscarOutros() {
+      var q = busca.value.trim();
+      if (q.length < 3) { outrosBox.hidden = true; outrosBox.innerHTML = ""; ultima = ""; return; }
+      if (q === ultima) return;
+      ultima = q;
+      fetch(outrosBox.dataset.url + "&q=" + encodeURIComponent(q)).then(function (r) { return r.json(); }).then(function (d) {
+        if (busca.value.trim() !== q) return;
+        if (!d.itens || !d.itens.length) { outrosBox.hidden = true; outrosBox.innerHTML = ""; return; }
+        outrosBox.hidden = false;
+        outrosBox.innerHTML = "<strong>Também encontrado em outros formulários e no cadastro de materiais</strong>" +
+          ' <span class="pequeno">— informe a quantidade e clique em “incluir”.</span>' +
+          '<table style="margin-top:.4rem"><tbody>' + d.itens.map(function (it, n) {
+            return '<tr data-n="' + n + '"><td class="mono pequeno">' + escH(it.codigos || "—") + "</td><td class='pequeno'>" +
+              escH(it.descricao) + '<br><span class="suave">' + escH(it.origem) +
+              (it.em_estoque ? " · " + it.em_estoque + " em estoque" : "") + "</span>" +
+              (it.pede_especificacao ? '<br><input type="text" class="o-espec" placeholder="tipo / tamanho" style="max-width:16rem;margin-top:.2rem">' : "") +
+              '</td><td style="width:6rem"><input type="number" class="o-qtd" min="1" max="999" value="1" style="width:5rem"></td>' +
+              '<td style="white-space:nowrap"><button type="button" class="botao secundario pequeno o-incluir">incluir</button>' +
+              ' <span class="pequeno o-msg"></span></td></tr>';
+          }).join("") + "</tbody></table>";
+        outrosBox.querySelectorAll(".o-incluir").forEach(function (b) {
+          b.addEventListener("click", function () {
+            var tr = b.closest("tr"), it = d.itens[Number(tr.dataset.n)], msg = tr.querySelector(".o-msg");
+            var espec = tr.querySelector(".o-espec");
+            fetch(outrosBox.dataset.incluir, { method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ codigo: it.codigos, descricao: it.descricao,
+                quantidade: tr.querySelector(".o-qtd").value, especificacao: espec ? espec.value : "" })
+            }).then(function (r) { return r.json(); }).then(function (res) {
+              msg.style.color = res.ok ? "var(--verde)" : "var(--vermelho)";
+              msg.textContent = (res.ok ? "✔ " : "✖ ") + res.mensagem;
+              if (res.ok) fetch(outrosBox.dataset.painel).then(function (r) { return r.text(); })
+                .then(function (h) { document.getElementById("cartao-solicitado").innerHTML = h; });
+            });
+          });
+        });
+      }).catch(function () {});
+    }
+    busca.addEventListener("input", function () { clearTimeout(timer); timer = setTimeout(buscarOutros, 300); });
+    busca.addEventListener("input", filtrar);
+    soPreenchidos.addEventListener("change", filtrar);
+    busca.focus();
+  })();
+  </script>
+  <div class="campo" style="margin-top:1rem"><label>Observação para a farmácia <span class="opcional">(opcional)</span></label>
+    <input type="text" name="observacao" value="{{ observacao }}" placeholder="Ex.: urgente, paciente já na sala"></div>
+  <div class="linha-botoes">
+    <button class="botao secundario" name="seguir" value="gravar">Gravar solicitação</button>
+    <button class="botao" name="seguir" value="concluir">Concluir solicitação</button>
+  </div>
+</form>
+
+<form method="post" class="cartao" action="/sala-procedimento/atendimento/{{ atendimento.id_atendimento }}/solicitacao/avulso">
+  <h2>Material fora do formulário</h2>
+  <div class="grade grade-3">
+    <div class="campo"><label>Código AGHU</label><input type="text" name="codigo_aghu" inputmode="numeric"></div>
+    <div class="campo"><label>Descrição <span class="opcional">(preenchida pelo AGHU se em branco)</span></label><input type="text" name="descricao"></div>
+    <div class="campo"><label class="obrigatorio">Quantidade</label><input type="number" name="quantidade" min="1" max="999" value="1"></div>
+  </div>
+  <button class="botao secundario">Incluir na solicitação</button>
+</form>
+{% else %}
+  <div class="aviso info">A solicitação só pode ser alterada com o atendimento aberto e antes de finalizar os utilizados.</div>
+{% endif %}
+
+<div class="cartao" id="cartao-solicitado">
+  {% include "sala_procedimento/_solicitado.html" %}
+</div>
+<script>
+  // Trocar de formulário com quantidade digitada e não gravada: grava antes.
+  function trocarFormulario(sel) {
+    var f = document.getElementById("form-solicitacao");
+    var mudou = f && Array.prototype.some.call(f.querySelectorAll("input"), function (i) {
+      return (i.type === "number" || i.type === "text") && i.value !== i.defaultValue;
+    });
+    if (mudou) {
+      var h = document.createElement("input");
+      h.type = "hidden"; h.name = "seguir"; h.value = "formulario:" + sel.value;
+      f.appendChild(h); f.submit();
+    } else { sel.form.submit(); }
+  }
+</script>
+{% endblock %}

@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block titulo %}Conciliação por sala · {{ APP_TITLE }}{% endblock %}
+
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <div>
+    <h1>Conciliação por sala e prontuário</h1>
+    <p>O que a farmácia dispensou, o que foi usado no paciente e o que voltou — por sala e prontuário
+       (cada procedimento é uma linha), pela data do procedimento. “Em aberto” é o que ainda precisa de uso, devolução ou confirmação.</p>
+  </div>
+  <div class="acoes">
+    <a class="botao secundario" href="/farmacia/conciliacao?inicio={{ inicio }}&fim={{ fim }}&sala={{ sala }}&unidade={{ unidade }}&prontuario={{ prontuario }}&atendimento={{ atendimento }}&formato=csv">Exportar planilha (CSV)</a>
+    <a class="botao secundario" href="/farmacia">Voltar</a>
+  </div>
+</div>
+
+{% include "sala_procedimento/_unidade.html" %}
+
+<form method="get" class="cartao" style="display:flex;gap:.6rem;align-items:flex-end;flex-wrap:wrap">
+  <div class="campo" style="margin:0"><label>De</label><input type="date" name="inicio" value="{{ inicio }}"></div>
+  <div class="campo" style="margin:0"><label>Até</label><input type="date" name="fim" value="{{ fim }}"></div>
+  <div class="campo" style="margin:0"><label>Unidade</label>
+    <select name="unidade">
+      <option value="">todas</option>
+      {% for chave, u in UNIDADES.items() %}<option value="{{ chave }}" {% if chave == unidade %}selected{% endif %}>{{ u.rotulo }}</option>{% endfor %}
+    </select></div>
+  <div class="campo" style="margin:0"><label>Sala</label><input type="text" name="sala" value="{{ sala }}" style="width:5rem"></div>
+  <div class="campo" style="margin:0"><label>Prontuário ou paciente</label><input type="text" name="prontuario" value="{{ prontuario }}"></div>
+  <button class="botao secundario">Filtrar</button>
+</form>
+
+<div class="grade grade-4" style="margin-bottom:1rem">
+  <div class="cartao"><div class="numero">{{ total.dispensado }}</div><div class="rotulo">dispensados</div></div>
+  <div class="cartao"><div class="numero">{{ total.usado }}</div><div class="rotulo">usados (do dispensado)</div></div>
+  <div class="cartao"><div class="numero">{{ total.devolvido }}</div><div class="rotulo">devolvidos ao estoque</div></div>
+  <div class="cartao" {% if total.em_aberto %}style="border-left:5px solid var(--amarelo, #d97706)"{% endif %}>
+    <div class="numero">{{ total.em_aberto }}</div><div class="rotulo">em aberto</div></div>
+</div>
+
+<div class="cartao">
+  <h2>Por sala e prontuário</h2>
+  {% if salas %}
+  <div class="tabela-rolagem"><table>
+    <thead><tr><th>Local</th><th>Prontuário</th><th class="num">Dispensado</th><th class="num">Usado</th><th class="num">Devolvido</th>
+               <th class="num">Em aberto</th><th class="num">Divergência</th><th class="num">Usado sem dispensação</th><th>Situação</th><th></th></tr></thead>
+    <tbody>
+      {% for l in salas %}
+      <tr>
+        <td><strong>{{ rotulo_unidade(l.unidade) }} — sala {{ l.sala }}</strong></td>
+        <td><strong>{{ l.prontuario }}</strong> <span class="suave pequeno">· {{ l.data_procedimento|data_br }}</span>
+            {% if l.paciente %}<br><span class="suave pequeno">{{ l.paciente }}</span>{% endif %}</td>
+        <td class="num">{{ l.dispensado }}</td>
+        <td class="num">{{ l.usado }}</td>
+        <td class="num">{{ l.devolvido }}</td>
+        <td class="num">{% if l.em_aberto %}<span class="etiqueta amarelo">{{ l.em_aberto }}</span>{% else %}0{% endif %}</td>
+        <td class="num">{% if l.divergencia %}<span class="etiqueta vermelho">{{ l.divergencia }}</span>{% else %}0{% endif %}</td>
+        <td class="num">{% if l.sem_dispensacao %}<span class="etiqueta {{ 'vermelho' if l.sem_ciencia else 'cinza' }}"
+              title="{{ l.sem_ciencia }} sem ciência da farmácia">{{ l.sem_dispensacao }}</span>{% else %}0{% endif %}</td>
+        <td>{% if l.fechado and not l.sem_ciencia %}<span class="etiqueta verde">conciliado</span>
+            {% else %}<span class="etiqueta amarelo">pendente</span>{% endif %}</td>
+        <td><a class="pequeno" href="/farmacia/conciliacao?inicio={{ inicio }}&fim={{ fim }}&unidade={{ l.unidade }}&sala={{ l.sala }}&atendimento={{ l.id_atendimento }}">ver itens</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table></div>
+  <p class="pequeno suave">Conciliado = no procedimento, tudo que foi dispensado já foi usado ou devolvido, sem divergência, e a farmácia
+    deu ciência dos usos sem dispensação.</p>
+  {% else %}<p class="vazio">Nada dispensado nem usado sem dispensação no período.</p>{% endif %}
+</div>
+
+{% if (atendimento or sala or prontuario) and (itens or sem_dispensacao) %}
+<div class="cartao">
+  <h2>Itens{% if atendimento and salas %} — {{ rotulo_unidade(salas[0].unidade) }} sala {{ salas[0].sala }} · prontuário {{ salas[0].prontuario }}{% elif sala %} — sala {{ sala }}{% endif %}</h2>
+  <div class="tabela-rolagem"><table>
+    <thead><tr><th>Procedimento</th><th>Material</th><th>Lote</th><th>Caixa</th><th>Dispensado</th><th>Recebido na sala</th><th>Desfecho</th></tr></thead>
+    <tbody>
+      {% for i in itens %}
+      <tr>
+        <td class="pequeno"><strong>{{ i.prontuario }}</strong> · {{ i.data_procedimento|data_br }}{% if i.paciente %}<br><span class="suave">{{ i.paciente }}</span>{% endif %}</td>
+        <td>{{ i.descritivo_hospital or i.xProd }} <span class="mono suave pequeno">AGHU {{ i.codigo_aghu or '—' }}</span></td>
+        <td class="mono">{{ i.nLote or '—' }}</td>
+        <td class="mono pequeno">{{ i.id_caixa or '—' }}</td>
+        <td class="pequeno">{{ i.bipado_em|data_hora_br }}<br><span class="suave">{{ i.bipado_por }}</span></td>
+        <td class="pequeno">{{ i.recebido_por or '—' }}</td>
+        <td><span class="etiqueta {{ {'usado':'azul','devolvido':'verde','divergencia':'vermelho'}.get(i.desfecho, 'amarelo') }}">{{ i.rotulo_desfecho }}</span></td>
+      </tr>
+      {% endfor %}
+      {% for s in sem_dispensacao %}
+      <tr>
+        <td class="pequeno"><strong>{{ s.prontuario }}</strong> · {{ s.data_procedimento|data_br }}</td>
+        <td>{{ s.descritivo_hospital or s.xProd }} <span class="mono suave pequeno">AGHU {{ s.codigo_aghu or '—' }}</span></td>
+        <td class="mono">{{ s.nLote or '—' }}</td>
+        <td>—</td><td class="pequeno">não dispensado</td><td>—</td>
+        <td><span class="etiqueta {{ 'cinza' if s.situacao == 'ciente' else 'vermelho' }}">Usado sem dispensação{{ ' — farmácia ciente' if s.situacao == 'ciente' else ' — sem ciência' }}</span></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table></div>
+</div>
+{% endif %}
+{% endblock %}

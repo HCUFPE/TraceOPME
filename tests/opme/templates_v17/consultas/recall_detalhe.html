@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block titulo %}Lote {{ bloqueio.nLote }} · {{ APP_TITLE }}{% endblock %}
+
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <div>
+    <h1>Lote {{ bloqueio.nLote }}</h1>
+    <p>{{ bloqueio.motivo }}
+       {% if bloqueio.referencia %} · referência {{ bloqueio.referencia }}{% endif %}</p>
+  </div>
+  <div class="acoes">
+    <button class="botao secundario" onclick="window.print()">Imprimir</button>
+    <a class="botao secundario" href="/consultas/recall">Voltar</a>
+  </div>
+</div>
+
+<div class="aviso {{ 'erro' if bloqueio.status == 'ativo' else 'sucesso' }}">
+  {% if bloqueio.status == 'ativo' %}
+    <strong>Bloqueado</strong> desde {{ bloqueio.criado_em|data_hora_br }}
+    por {{ bloqueio.criado_por }}. O sistema recusa qualquer movimentação
+    deste lote em direção ao paciente.
+  {% else %}
+    <strong>Liberado</strong> em {{ bloqueio.liberado_em|data_hora_br }}
+    por {{ bloqueio.liberado_por }}: {{ bloqueio.motivo_liberacao }}
+  {% endif %}
+</div>
+
+<div class="cartao">
+  <div class="entre">
+    <h2>1. Retirar de circulação — {{ em_circulacao|length }} unidade(s)</h2>
+    <span class="suave pequeno">o que ainda dá para impedir</span>
+  </div>
+  {% if em_circulacao %}
+    <div class="tabela-rolagem">
+      <table>
+        <thead><tr><th>Onde está</th><th>Produto</th><th>Código</th>
+                   <th>Validade</th><th>Paciente reservado</th><th></th></tr></thead>
+        <tbody>
+          {% for u in em_circulacao %}
+            <tr>
+              <td><span class="etiqueta {{ cor_status(u.status) }}">{{ u.situacao }}</span>
+                  {% if u.farmacia %}<br><span class="suave pequeno">{{ rotulo_unidade(u.farmacia) }}</span>{% endif %}</td>
+              <td>{{ u.xProd }}</td>
+              <td class="mono pequeno">{{ u.codigo_barras }}<br>
+                  <span class="suave">AGHU {{ u.codigo_aghu or '—' }}</span></td>
+              <td class="pequeno">{{ u.dVal|data_br or '—' }}</td>
+              <td class="pequeno">{{ u.prontuario or '—' }}
+                  {% if u.sala %}<br><span class="suave">sala {{ u.sala }}</span>{% endif %}</td>
+              <td><a class="pequeno" href="/consultas/item/{{ u.id_unidade }}">histórico</a></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="suave pequeno" style="margin-top:.75rem">
+      Recolha fisicamente e registre a saída em <em>Almoxarifado → Devolver ao fornecedor</em>
+      ou <em>Baixar item</em>. Essas operações continuam liberadas de propósito — são o
+      caminho para tirar o lote de circulação.
+    </p>
+  {% else %}
+    <p class="aviso sucesso" style="margin:0">
+      Nenhuma unidade deste lote em circulação. Nada a recolher.
+    </p>
+  {% endif %}
+</div>
+
+<div class="cartao">
+  <div class="entre">
+    <h2>2. Pacientes que já receberam — {{ implantadas|length }}</h2>
+    <span class="suave pequeno">para acompanhamento clínico</span>
+  </div>
+  {% if implantadas %}
+    <div class="aviso erro">
+      Estes pacientes precisam entrar na lista de acompanhamento do recall.
+    </div>
+    <div class="tabela-rolagem">
+      <table>
+        <thead><tr><th>Prontuário</th><th>Paciente</th><th>Data do procedimento</th>
+                   <th>Produto</th><th>Nº série</th><th>NF</th><th></th></tr></thead>
+        <tbody>
+          {% for u in implantadas %}
+            <tr>
+              <td><a href="/consultas/prontuario?numero={{ u.prontuario }}">{{ u.prontuario or '—' }}</a></td>
+              <td>{{ u.paciente or '—' }}</td>
+              <td>{{ u.data_procedimento|data_br or '—' }}
+                  <span class="suave pequeno">{{ u.data_uso|data_hora_br }}</span></td>
+              <td class="pequeno">{{ u.xProd }}</td>
+              <td class="mono pequeno">{{ u.numero_serie or '—' }}</td>
+              <td class="pequeno">{{ u.numero_nf or '—' }}</td>
+              <td><a class="pequeno" href="/consultas/item/{{ u.id_unidade }}">histórico</a></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="aviso sucesso" style="margin:0">
+      Nenhuma unidade deste lote foi implantada em paciente.
+    </p>
+  {% endif %}
+</div>
+
+{% if bloqueio.status == 'ativo' %}
+<form method="post" action="/consultas/recall/{{ bloqueio.id_bloqueio }}/liberar" class="cartao"
+      data-confirmar="Liberar o lote? O material volta a circular normalmente.">
+  <h2>Liberar o lote</h2>
+  <p class="suave pequeno">
+    Use quando o fornecedor cancelar o recall ou quando todo o material afetado já
+    tiver saído do estoque. O bloqueio continua no histórico.
+  </p>
+  <div class="campo" style="max-width:560px">
+    <label class="obrigatorio">Motivo da liberação</label>
+    <input type="text" name="motivo" required
+           placeholder="Ex.: fornecedor cancelou o recall — comunicado 15/2026">
+  </div>
+  <button class="botao secundario">Liberar lote</button>
+</form>
+{% endif %}
+{% endblock %}

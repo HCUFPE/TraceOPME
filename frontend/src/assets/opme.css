@@ -1,0 +1,563 @@
+/* TraceOPME — estilos das telas de rastreabilidade, dentro do layout do
+   Framework SETISD (DefaultLayout: menu lateral + cabeçalho + rodapé de versão).
+
+   Portado de app/static/app.css da v17. Tudo fica sob a classe .opme (a área
+   de conteúdo), para não interferir no Tailwind do framework. Pensado para uso
+   em desktop e tablet dentro do bloco cirúrgico: alvos de toque grandes, alto
+   contraste e tipografia legível a distância. As cores-base acompanham a
+   paleta "paper" do framework; verde/amarelo/vermelho seguem semânticos. */
+
+:root {
+  --azul: #0f766e;          /* nov/2026 (17.5.0): ação = verde-água da marca (5,5:1 com texto branco) */
+  --azul-claro: #e3f2ef;
+  --azul-escuro: #115e59;
+  --marinho: #0c3a67;       /* títulos */
+  --verde: #177a4a;
+  --verde-claro: #e6f5ee;
+  --amarelo: #a86a00;
+  --amarelo-claro: #fdf3e0;
+  --vermelho: #b3261e;
+  --vermelho-claro: #fdeceb;
+  --roxo: #6b3fa0;
+  --roxo-claro: #f1ebfa;
+  --cinza: #5c6470;
+  --cinza-claro: #f0f2f5;
+  --texto: #1e2b3a;
+  --texto-suave: #52606d;
+  --borda: #dce3e9;
+  --fundo: #f4f7f9;          /* --color-paper-bg */
+  --branco: #fff;
+  --raio: 10px;
+  --sombra: 0 1px 3px rgba(16, 24, 40, .08), 0 1px 2px rgba(16, 24, 40, .06);
+}
+
+.opme { color: var(--texto); font-size: 16px; line-height: 1.5; }
+.opme a { color: var(--azul); text-decoration: underline; text-underline-offset: 2px; }
+/* Classes de botão/cartão em <a> precisam vencer a cor geral de link acima. */
+.opme a.botao { color: #fff; }
+.opme a.botao.secundario { color: var(--azul); }
+.opme a.acao-card { color: inherit; }
+.opme a.botao, .opme a.acao-card, .opme .abas-indicadores a, .opme .trilha a { text-decoration: none; }
+.opme h1, .opme h2, .opme h3 { line-height: 1.25; margin: 0 0 .5rem; font-weight: 700; color: var(--texto); }
+.opme h1 { color: var(--marinho); }
+.opme h1 { font-size: 1.6rem; }
+.opme h2 { font-size: 1.2rem; }
+.opme h3 { font-size: 1.02rem; }
+.opme p { margin: 0 0 .75rem; }
+.opme ul.lista, .opme ol.lista { padding-left: 1.25rem; list-style: disc; }
+.opme ol.lista { list-style: decimal; }
+.opme details > summary { list-style: revert; }
+.opme strong, .opme b { font-weight: 700; }
+.opme hr { border: 0; border-top: 1px solid var(--borda); margin: 1rem 0; }
+
+.cabecalho-pagina { display: flex; align-items: flex-start; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+.cabecalho-pagina p { margin: 0; color: var(--texto-suave); }
+.cabecalho-pagina .acoes { margin-left: auto; display: flex; gap: .5rem; flex-wrap: wrap; }
+
+/* ---------- Cartões ---------- */
+
+.cartao {
+  background: var(--branco); border: 1px solid var(--borda);
+  border-radius: var(--raio); padding: 1.1rem 1.25rem; box-shadow: var(--sombra);
+  margin-bottom: 1rem;
+}
+.cartao > h2:first-child, .cartao > h3:first-child { margin-top: 0; }
+
+.grade { display: grid; gap: 1rem; }
+.grade-2 { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+.grade-3 { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.grade-4 { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+
+.numero { font-size: 2rem; font-weight: 700; line-height: 1.1; }
+.rotulo { color: var(--texto-suave); font-size: .85rem; }
+
+/* Cartão de ação do painel */
+.acao-card {
+  display: block; text-decoration: none; color: inherit; background: var(--branco);
+  border: 1px solid var(--borda); border-left: 5px solid var(--cinza);
+  border-radius: var(--raio); padding: 1rem 1.15rem; box-shadow: var(--sombra);
+  transition: transform .08s ease, box-shadow .08s ease;
+}
+.acao-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(16, 24, 40, .12); }
+.acao-card.alta { border-left-color: var(--vermelho); }
+.acao-card.media { border-left-color: var(--amarelo); }
+.acao-card .numero { color: var(--azul-escuro); }
+.acao-card .seta { color: var(--azul); font-weight: 600; font-size: .88rem; }
+
+/* ---------- Etiquetas de situação ---------- */
+
+.etiqueta {
+  display: inline-block; padding: .18rem .6rem; border-radius: 999px;
+  font-size: .78rem; font-weight: 600; white-space: nowrap; max-width: 100%;
+}
+.etiqueta.azul { background: var(--azul-claro); color: var(--azul-escuro); }
+.etiqueta.verde { background: var(--verde-claro); color: var(--verde); }
+.etiqueta.amarelo { background: var(--amarelo-claro); color: var(--amarelo); }
+.etiqueta.vermelho { background: var(--vermelho-claro); color: var(--vermelho); }
+.etiqueta.roxo { background: var(--roxo-claro); color: var(--roxo); }
+.etiqueta.cinza { background: var(--cinza-claro); color: var(--cinza); }
+
+/* Relação por unidade (consignado para o fornecedor): lote, validade, série e
+   valor não podem quebrar em duas linhas — são o que se confere item a item. */
+.tabela-detalhe td.mono, .tabela-detalhe td.num { white-space: nowrap; }
+
+/* Descrição do material pelo hospital (planilha MasterTools), mostrada ao
+   digitar o código AGHU. Fica em destaque, e não como dica cinza: é a
+   conferência de que o código digitado é mesmo aquele material. */
+.descritivo-hc {
+  margin-top: .5rem; padding: .55rem .8rem; border-radius: 8px;
+  background: var(--azul-claro); border-left: 4px solid var(--azul);
+  color: var(--azul-escuro); font-size: .92rem; line-height: 1.4;
+}
+.descritivo-hc .rotulo-hc { font-weight: 700; margin-right: .25rem; }
+.descritivo-hc.nao-encontrado {
+  background: var(--amarelo-claro); border-left-color: var(--amarelo); color: #7a4d00;
+}
+
+/* ---------- Trilha do fluxo ---------- */
+
+.trilha { display: flex; gap: .35rem; flex-wrap: wrap; margin: 1rem 0 1.5rem; }
+.trilha .etapa {
+  flex: 1 1 130px; padding: .6rem .75rem; border-radius: var(--raio);
+  background: var(--branco); border: 1px solid var(--borda); font-size: .82rem;
+  text-align: center; text-decoration: none; color: var(--texto-suave);
+}
+.trilha .etapa strong { display: block; font-size: 1.3rem; color: var(--texto); }
+.trilha .etapa.destaque { border-color: var(--azul); background: var(--azul-claro); color: var(--azul-escuro); }
+.trilha .etapa.destaque strong { color: var(--azul-escuro); }
+
+/* ---------- Formulários ---------- */
+
+.opme label { display: block; font-weight: 600; font-size: .88rem; margin-bottom: .3rem; }
+.opme label .opcional { font-weight: 400; color: var(--texto-suave); }
+
+.opme input, .opme select, .opme textarea, .opme button {
+  font-family: inherit; font-size: 1rem;
+}
+.opme input[type=text], .opme input[type=password], .opme input[type=number], .opme input[type=date],
+.opme input[type=email], .opme input[type=file], .opme input[type=search], .opme select, .opme textarea {
+  width: 100%; padding: .6rem .7rem; border: 1px solid var(--borda);
+  border-radius: 8px; background: var(--branco); color: var(--texto);
+}
+.opme input:focus, .opme select:focus, .opme textarea:focus {
+  outline: 3px solid rgba(18, 80, 140, .25); border-color: var(--azul);
+}
+.campo { margin-bottom: .9rem; }
+.campo .dica { font-size: .8rem; color: var(--texto-suave); margin-top: .25rem; }
+.obrigatorio::after { content: " *"; color: var(--vermelho); }
+
+.botao {
+  display: inline-flex; align-items: center; justify-content: center; gap: .4rem;
+  padding: .62rem 1.1rem; border-radius: 8px; border: 1px solid transparent;
+  background: var(--azul); color: #fff; font-weight: 600; cursor: pointer;
+  text-decoration: none; min-height: 44px;
+}
+.botao:hover { background: var(--azul-escuro); }
+.botao.secundario { background: var(--branco); color: var(--azul); border-color: var(--borda); }
+.botao.secundario:hover { background: var(--azul-claro); }
+.botao.perigo { background: var(--vermelho); }
+.botao.pequeno { padding: .35rem .7rem; min-height: 34px; font-size: .85rem; }
+.botao[disabled] { opacity: .5; cursor: not-allowed; }
+
+.linha-botoes { display: flex; gap: .6rem; flex-wrap: wrap; margin-top: 1rem; }
+
+/* ---------- Tabelas ---------- */
+
+.tabela-rolagem { overflow-x: auto; }
+.opme table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+.opme th, .opme td { padding: .55rem .6rem; text-align: left; border-bottom: 1px solid var(--borda); vertical-align: top; }
+.opme th { background: var(--cinza-claro); font-size: .8rem; text-transform: uppercase; letter-spacing: .03em; color: var(--texto-suave); position: sticky; top: 0; }
+.opme tbody tr:hover { background: #fafbfc; }
+.opme td.num, .opme th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.vazio { padding: 2rem 1rem; text-align: center; color: var(--texto-suave); }
+
+/* ---------- Avisos ---------- */
+
+.aviso {
+  padding: .8rem 1rem; border-radius: var(--raio); margin-bottom: 1rem;
+  border: 1px solid transparent; font-size: .95rem;
+}
+.aviso.sucesso { background: var(--verde-claro); border-color: #bfe4d1; color: #0f5c37; }
+.aviso.erro { background: var(--vermelho-claro); border-color: #f4c7c4; color: #8c1d18; }
+.aviso.alerta { background: var(--amarelo-claro); border-color: #f0dcb4; color: #7a4d00; }
+.aviso.info { background: var(--azul-claro); border-color: #c3dcf2; color: var(--azul-escuro); }
+
+/* ---------- Tela de bipagem ---------- */
+
+.bipagem { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 380px); gap: 1rem; align-items: start; }
+@media (max-width: 900px) { .bipagem { grid-template-columns: 1fr; } }
+
+.caixa-scanner { border: 2px solid var(--azul); border-radius: var(--raio); padding: 1.25rem; background: var(--branco); }
+.caixa-scanner label { font-size: 1rem; }
+.opme #codigo {
+  font-size: 1.8rem; padding: .8rem .9rem; letter-spacing: .04em;
+  font-variant-numeric: tabular-nums; font-weight: 600; text-align: center;
+}
+/* Bloqueado enquanto a entrega não foi confirmada por quem recebe: precisa
+   parecer bloqueado, senão o operador bipa e acha que o leitor falhou. */
+.opme #codigo[disabled] {
+  background: var(--cinza-claro); color: var(--texto-suave);
+  border-style: dashed; cursor: not-allowed;
+}
+.opme #codigo[disabled]::placeholder { font-size: 1.05rem; font-weight: 500; letter-spacing: 0; }
+.contador-grande { display: flex; gap: 1.5rem; margin: 1rem 0 .25rem; }
+.contador-grande div { flex: 1; text-align: center; background: var(--cinza-claro); border-radius: var(--raio); padding: .6rem; }
+.contador-grande .numero { color: var(--azul-escuro); }
+
+.opme #resultado { margin-top: 1rem; min-height: 88px; }
+.opme #resultado:empty { min-height: 0; margin-top: .5rem; }
+.contador-grande[hidden] { display: none; }
+.resultado-linha {
+  border-radius: var(--raio); padding: .85rem 1rem; border: 1px solid transparent;
+  display: flex; gap: .85rem; align-items: flex-start;
+}
+.resultado-linha .icone { font-size: 1.5rem; line-height: 1; }
+.resultado-linha.ok { background: var(--verde-claro); border-color: #bfe4d1; }
+.resultado-linha.falha { background: var(--vermelho-claro); border-color: #f4c7c4; }
+/* Inventário: a leitura deu certo, mas o que apareceu não bate com o sistema.
+   Nem verde (não confere) nem vermelho (a leitura não falhou) — é pendência. */
+.resultado-linha.alerta { background: var(--amarelo-claro); border-color: #f0dcb4; }
+.resultado-linha .titulo { font-weight: 700; font-size: 1.05rem; }
+.resultado-linha .detalhe { font-size: .88rem; color: var(--texto-suave); }
+
+.lista-bipados { list-style: none; margin: 0; padding: 0; max-height: 320px; overflow-y: auto; }
+.lista-bipados li {
+  display: flex; gap: .6rem; align-items: center; padding: .5rem .25rem;
+  border-bottom: 1px solid var(--borda); font-size: .88rem;
+}
+.lista-bipados li .produto { flex: 1; min-width: 0; }
+/* v18.16: nome do produto quebra linha em vez de virar "..." */
+.lista-bipados li .produto strong { display: block; overflow-wrap: break-word; }
+.lista-bipados li .produto span { color: var(--texto-suave); font-size: .8rem; }
+
+.pendentes-lista { max-height: 420px; overflow-y: auto; }
+
+/* Feedback visual de leitura */
+@keyframes piscar-ok { 0% { background: #d4f2e2; } 100% { background: transparent; } }
+@keyframes piscar-erro { 0% { background: #fbd9d7; } 100% { background: transparent; } }
+.piscar-ok { animation: piscar-ok .6s ease-out; }
+.piscar-erro { animation: piscar-erro .6s ease-out; }
+
+/* ---------- Login ---------- */
+
+.tela-login { max-width: 460px; margin: 4vh auto; }
+.tela-login .cartao { padding: 1.75rem; }
+.abas { display: flex; gap: .25rem; border-bottom: 1px solid var(--borda); margin-bottom: 1.25rem; }
+.abas button {
+  background: none; border: none; border-bottom: 3px solid transparent; cursor: pointer;
+  padding: .6rem .8rem; font-size: .92rem; font-weight: 600; color: var(--texto-suave);
+}
+.abas button.ativa { color: var(--azul); border-bottom-color: var(--azul); }
+
+/* ---------- Indicadores ---------- */
+
+.abas-indicadores {
+  display: flex; gap: .25rem; flex-wrap: wrap;
+  border-bottom: 1px solid var(--borda); margin-bottom: 1rem;
+}
+.abas-indicadores a {
+  padding: .55rem .9rem; text-decoration: none; color: var(--texto-suave);
+  font-weight: 600; font-size: .92rem; border-bottom: 3px solid transparent;
+  white-space: nowrap;
+}
+.abas-indicadores a:hover { color: var(--azul); background: var(--azul-claro); }
+.abas-indicadores a.ativa { color: var(--azul); border-bottom-color: var(--azul); }
+
+.grade-kpi {
+  display: grid; gap: .85rem; margin-bottom: 1.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+}
+
+.kpi {
+  background: var(--branco); border: 1px solid var(--borda);
+  border-top: 4px solid var(--cinza); border-radius: var(--raio);
+  padding: .9rem 1rem; box-shadow: var(--sombra); display: flex; flex-direction: column;
+}
+.kpi.verde { border-top-color: var(--verde); }
+.kpi.amarelo { border-top-color: var(--amarelo); }
+.kpi.vermelho { border-top-color: var(--vermelho); }
+.kpi.neutro { border-top-color: var(--cinza); }
+
+.kpi-topo { display: flex; align-items: flex-start; gap: .4rem; }
+.kpi-nome { font-size: .82rem; font-weight: 600; color: var(--texto-suave); flex: 1; line-height: 1.3; }
+.kpi-ajuda {
+  width: 18px; height: 18px; border-radius: 50%; background: var(--cinza-claro);
+  color: var(--texto-suave); font-size: .72rem; font-weight: 700; cursor: help;
+  display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.kpi-ajuda:hover, .kpi-ajuda:focus { background: var(--azul); color: #fff; outline: none; }
+.kpi-valor { font-size: 1.75rem; font-weight: 700; margin: .35rem 0 .1rem; line-height: 1.1; }
+.kpi.verde .kpi-valor { color: var(--verde); }
+.kpi.amarelo .kpi-valor { color: var(--amarelo); }
+.kpi.vermelho .kpi-valor { color: var(--vermelho); }
+.kpi-meta { font-size: .76rem; color: var(--texto-suave); }
+.kpi-pergunta {
+  font-size: .78rem; color: var(--texto-suave); margin-top: .5rem;
+  padding-top: .5rem; border-top: 1px dashed var(--borda); line-height: 1.35;
+}
+
+.borda-vermelha { border-left: 5px solid var(--vermelho); }
+.borda-amarela { border-left: 5px solid var(--amarelo); }
+tr.destaque-vermelho { background: var(--vermelho-claro); }
+
+/* Barras horizontais */
+.barras { display: flex; flex-direction: column; gap: .4rem; }
+.barra-linha { display: flex; align-items: center; gap: .6rem; font-size: .85rem; }
+.barra-rotulo {
+  width: 190px; flex-shrink: 0; color: var(--texto);
+  overflow-wrap: break-word; line-height: 1.25;   /* v18.16: quebra em vez de cortar com "..." */
+}
+.barra-trilho {
+  flex: 1; height: 18px; background: var(--cinza-claro);
+  border-radius: 4px; overflow: hidden; min-width: 60px;
+}
+.barra-preenchida { height: 100%; background: var(--azul); border-radius: 4px; }
+.barra-preenchida.verde { background: var(--verde); }
+.barra-preenchida.amarelo { background: #d18f00; }
+.barra-preenchida.vermelho { background: var(--vermelho); }
+.barra-preenchida.roxo { background: var(--roxo); }
+.barra-valor {
+  width: 110px; flex-shrink: 0; text-align: right;
+  font-variant-numeric: tabular-nums; font-weight: 600;
+}
+@media (max-width: 640px) {
+  .barra-rotulo { width: 110px; }
+  .barra-valor { width: 80px; font-size: .8rem; }
+}
+
+.grafico-linha { width: 100%; height: auto; max-height: 240px; }
+
+/* ---------- Log técnico ---------- */
+
+.log-caixa {
+  background: #1c2430; border-radius: var(--raio); padding: .75rem;
+  max-height: 560px; overflow: auto;
+}
+.log-linha {
+  font-family: ui-monospace, "SF Mono", Consolas, monospace;
+  font-size: .78rem; line-height: 1.5; color: #c7d0da;
+  white-space: pre-wrap; word-break: break-word;
+  padding: .1rem .35rem; border-radius: 3px;
+}
+.log-linha.erro { color: #ff9d94; background: rgba(179, 38, 30, .18); }
+.log-linha.aviso { color: #ffd08a; }
+
+/* ---------- Utilitários ---------- */
+
+.oculto { display: none !important; }
+.suave { color: var(--texto-suave); }
+.pequeno { font-size: .85rem; }
+.mono { font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: .85em; }
+.entre { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
+.filtros { display: flex; gap: .75rem; flex-wrap: wrap; align-items: flex-end; }
+.filtros .campo { margin-bottom: 0; min-width: 150px; }
+
+@media print {
+  .nao-imprimir, .botao, .filtros, .acoes { display: none !important; }
+  .opme-pagina { max-width: none; padding: 0; }
+  .cartao { border: none; box-shadow: none; padding: 0; }
+}
+
+
+/* v17 — aviso de entrega da caixa ao paciente */
+.alerta-entrega { position: fixed; inset: 0; z-index: 1000; display: flex;
+  align-items: center; justify-content: center; padding: 16px;
+  background: rgba(120, 0, 0, .78); animation: alerta-pulso 1s ease-in-out infinite alternate; }
+.alerta-entrega[hidden] { display: none; }
+.alerta-entrega-janela { background: #fff; border: 8px solid var(--vermelho); border-radius: 14px;
+  max-width: 640px; width: 100%; padding: 1.6rem; text-align: center;
+  box-shadow: 0 10px 40px rgba(0,0,0,.5); }
+.alerta-entrega-janela h2 { color: var(--vermelho); font-size: 1.6rem; margin: .4rem 0 .8rem; }
+.alerta-entrega-icone { width: 72px; height: 72px; margin: 0 auto; border-radius: 50%;
+  background: var(--vermelho); color: #fff; font-size: 3rem; font-weight: 800; line-height: 72px; }
+.alerta-entrega-produto { font-size: 1.25rem; font-weight: 700; margin: .3rem 0; }
+.alerta-entrega-detalhe { font-family: monospace; color: #555; }
+.alerta-entrega-botao { background: var(--vermelho); font-size: 1.1rem; padding: .9rem 1.2rem;
+  margin-top: .6rem; width: 100%; }
+@keyframes alerta-pulso { from { background: rgba(120,0,0,.70); } to { background: rgba(200,0,0,.85); } }
+.alerta-entrega-cartao { border-left: 6px solid var(--vermelho); background: var(--vermelho-claro); }
+.alerta-entrega-cartao h2 { color: var(--vermelho); }
+
+/* v17 — cartões coloridos (tela da Sala de procedimento) */
+/* nov/2026 (paleta Clínico claro): cartões brancos, título em marinho e só a faixa
+   da esquerda indica o tipo — ação (verde-água), consulta (azul-acinzentado),
+   correção/saída (âmbar) e caixas (lilás). Pendência ("alta") em vermelho. */
+.acao-card { background: var(--branco); border-left-width: 5px; }
+.acao-card h3 { color: var(--marinho, #0c3a67); }
+.acao-card .rotulo { color: var(--texto-suave); }
+.acao-card.cor-verde   { border-left-color: #0f766e; }
+.acao-card.cor-azul    { border-left-color: #5b7fa6; }
+.acao-card.cor-roxo    { border-left-color: #7c5cbf; }
+.acao-card.cor-amarelo { border-left-color: #b7791f; }
+.acao-card.cor-marinho { border-left-color: #0c3a67; }
+.acao-card.cor-vinho   { border-left-color: #a2477a; }
+/* nov/2026: linhas de 4 cartões agrupados por tipo (hub do Almoxarifado) */
+/* v18.16: faixa de ações com nome — a grade se ajusta à largura (sem linha de 4 fixa,
+   que deixava um cartão sozinho no fim do grupo) e os cartões ficam da mesma altura. */
+.faixa-acoes { margin: 0 0 1.6rem; }
+.faixa-acoes > h2 {
+  font-size: .78rem; text-transform: uppercase; letter-spacing: .07em; font-weight: 700;
+  color: var(--texto-suave); margin: 0 0 .55rem; padding-bottom: .3rem;
+  border-bottom: 1px solid var(--borda);
+}
+.linha-cartoes {
+  display: grid; gap: 1rem; margin-bottom: 1rem; align-items: stretch;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+}
+.faixa-acoes .linha-cartoes { margin-bottom: 0; }
+/* faixa de 5 ações: cartão um pouco mais estreito para os 5 caberem na mesma linha */
+.linha-cartoes.cinco { grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); }
+@media (max-width: 760px) { .linha-cartoes, .linha-cartoes.cinco { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 460px) { .linha-cartoes, .linha-cartoes.cinco { grid-template-columns: 1fr; } }
+/* nada de texto cortado dentro do cartão: nunca corta, sempre quebra linha */
+.acao-card { overflow: visible; overflow-wrap: break-word; hyphens: manual; }
+.acao-card h3, .acao-card .rotulo, .acao-card .etiqueta, .acao-card .numero { white-space: normal; text-overflow: clip; }
+.acao-card .numero { line-height: 1.25; }
+/* mesma altura e textos alinhados: título em cima, descrição sempre embaixo */
+.linha-cartoes > .acao-card { display: flex; flex-direction: column; min-height: 7.2rem; }
+.linha-cartoes > .acao-card > h3 { margin: 0 0 .3rem; font-size: .97rem; line-height: 1.25; }
+.linha-cartoes > .acao-card > .numero { margin: 0 0 .1rem; }
+.linha-cartoes > .acao-card > .rotulo { margin: 0; }
+.linha-cartoes > .acao-card > .numero + .rotulo { margin-top: .1rem; }
+/* dentro do cartão a etiqueta pode quebrar linha — antes passava da borda */
+.linha-cartoes > .acao-card > .etiqueta { margin-top: .4rem; align-self: flex-start; }
+.linha-cartoes > .acao-card .etiqueta { white-space: normal; line-height: 1.3; }
+/* nov/2026: cartão pintado com um tom claro da sua cor (mais fácil de achar o grupo) */
+.acao-card.cor-verde   { background: #e6f4f1; border-color: #c4e4de; border-left-color: #0f766e; }
+.acao-card.cor-marinho { background: #e7eef6; border-color: #c9d7e8; border-left-color: #0c3a67; }
+.acao-card.cor-azul    { background: #edf2f8; border-color: #d3deea; border-left-color: #5b7fa6; }
+.acao-card.cor-roxo    { background: #f1ecfa; border-color: #ddd2f1; border-left-color: #7c5cbf; }
+.acao-card.cor-vinho   { background: #f8eaf2; border-color: #ecd0df; border-left-color: #a2477a; }
+.acao-card.cor-amarelo { background: #fbf2e2; border-color: #f0dcb8; border-left-color: #b7791f; }
+.acao-card[class*="cor-"]:hover { filter: brightness(.97); }
+.acao-card .numero { color: #0f766e; }
+.acao-card.alta { border-color: #f3c9c4; border-left-color: var(--vermelho); background: #fdecea; }
+.acao-card.alta h3, .acao-card.alta .numero { color: var(--vermelho); }
+.acao-card.media { border-left-color: var(--amarelo); }
+.acao-card:not([class*="cor-"]):hover { border-top-color: #c9d6df; border-right-color: #c9d6df; border-bottom-color: #c9d6df; }
+
+/* v17 — escolha Bloco / Hemodinâmica na Sala de procedimento */
+.seletor-unidade { border-left: 6px solid var(--azul); margin-bottom: 1.25rem; }
+.seletor-unidade.sem-escolha { border-left-color: var(--vermelho); background: var(--vermelho-claro); }
+.seletor-unidade-atual { font-size: 1.3rem; }
+.botao-unidade { min-width: 170px; font-size: 1rem; }
+
+/* v17 — confirmação grande de cada bip */
+.confirmacao-bip { position: fixed; inset: 0; z-index: 900; display: flex;
+  align-items: center; justify-content: center; padding: 16px; background: rgba(16,24,40,.35); }
+.confirmacao-bip[hidden] { display: none; }
+.confirmacao-bip-janela { background: #fff; border-radius: 16px; max-width: 620px; width: 100%;
+  padding: 1.6rem 1.4rem; text-align: center; border: 8px solid var(--verde);
+  box-shadow: 0 12px 40px rgba(0,0,0,.35); animation: confirmacao-entra .15s ease-out; }
+.confirmacao-bip-icone { width: 84px; height: 84px; margin: 0 auto .4rem; border-radius: 50%;
+  color: #fff; font-size: 3.2rem; font-weight: 800; line-height: 84px; background: var(--verde); }
+.confirmacao-bip h2 { font-size: 1.7rem; margin: .3rem 0 .6rem; color: var(--verde); }
+.confirmacao-bip-produto { font-size: 1.25rem; font-weight: 700; margin: .2rem 0; }
+.confirmacao-bip-detalhe { font-family: monospace; color: #444; margin: .3rem 0; white-space: pre-line; }
+.confirmacao-bip-dica { color: #666; font-size: .85rem; margin-top: .7rem; }
+.confirmacao-bip .aviso { text-align: left; margin-top: .6rem; }
+.confirmacao-bip.falha .confirmacao-bip-janela { border-color: var(--vermelho); }
+.confirmacao-bip.falha .confirmacao-bip-icone { background: var(--vermelho); }
+.confirmacao-bip.falha h2 { color: var(--vermelho); }
+.confirmacao-bip.falha { background: rgba(120,0,0,.45); }
+#confirmacao-bip-ok { background: var(--vermelho); width: 100%; margin-top: .8rem; font-size: 1.05rem; }
+@keyframes confirmacao-entra { from { transform: scale(.92); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* TraceOPME — logo na tela de login */
+.login-logo { display: flex; flex-direction: column; align-items: center; gap: .4rem; margin-bottom: .2rem; }
+.login-logo img { border-radius: 18px; box-shadow: 0 4px 14px rgba(12,58,103,.25); }
+.login-logo h1 { margin: .2rem 0 0; color: #0c3a67; font-size: 2.1rem; letter-spacing: -.5px; }
+.login-logo .marca-destaque { color: #0f8f7a; }
+/* nov/2026 (17.5.0): login claro */
+.login-fundo { background: linear-gradient(165deg, #e6f1f2 0%, #f4f7f9 55%, #ffffff 100%); }
+
+/* v17 — janela de escolha quando o código responde a mais de um item */
+.confirmacao-bip.escolha { background: rgba(120, 80, 0, .45); }
+.confirmacao-bip.escolha .confirmacao-bip-janela { border-color: #d18f00; max-width: 760px; text-align: left; }
+.confirmacao-bip.escolha .confirmacao-bip-icone { background: #d18f00; margin-bottom: .3rem; text-align: center; }
+.confirmacao-bip.escolha h2 { color: #8a5a00; text-align: center; }
+.escolha-explica { font-size: 1rem; margin: .2rem 0 .8rem; text-align: center; }
+.escolha-lista { display: grid; gap: .6rem; max-height: 55vh; overflow-y: auto; }
+.escolha-opcao { display: flex; gap: .8rem; align-items: flex-start; width: 100%; text-align: left;
+  background: #fff; border: 2px solid var(--borda); border-radius: 12px; padding: .8rem 1rem;
+  cursor: pointer; font: inherit; color: var(--texto); }
+.escolha-opcao:hover, .escolha-opcao:focus-visible { border-color: #d18f00; background: var(--amarelo-claro); outline: none; }
+.escolha-num { flex: none; width: 34px; height: 34px; border-radius: 50%; background: #d18f00; color: #fff;
+  font-weight: 800; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; }
+.escolha-texto { display: flex; flex-direction: column; gap: .2rem; min-width: 0; }
+.escolha-produto { font-weight: 700; font-size: 1.05rem; }
+.escolha-dados { font-size: .98rem; }
+.escolha-forn { font-size: .85rem; color: var(--texto-suave); }
+mark.escolha-difere { background: #ffe08a; color: inherit; padding: 0 .2rem; border-radius: 4px; }
+
+/* v17 — caixa ativa no registro de uso (bipa a caixa, depois o item) */
+.caixa-ativa{display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:.8rem;
+  padding:.8rem 1rem;border:3px solid #d97706;border-radius:10px;background:#fff7e6;color:#5a3a00}
+.caixa-ativa-texto{flex:1 1 16rem;min-width:0}
+.caixa-ativa-rotulo{display:inline-block;background:#d97706;color:#fff;font-weight:700;
+  font-size:.75rem;letter-spacing:.06em;padding:.1rem .5rem;border-radius:4px;margin-right:.4rem}
+.caixa-ativa strong{font-size:1.15rem}
+.caixa-ativa[hidden]{display:none}
+
+/* v17 — janela de bloqueio (ex.: concluir com material dispensado pendente) */
+.alerta-janela { animation: none; background: rgba(120, 0, 0, .6); }
+
+/* Solicitação de OPME em aberto: alerta piscando para a farmácia */
+.alerta-pedido-opme { display: flex; align-items: center; gap: .7rem; margin: 0 0 1rem; padding: .8rem 1rem;
+  border-radius: 10px; background: #fff4d6; border: 2px solid #e0a100; color: #6b4700; text-decoration: none;
+  animation: pisca-pedido 1.2s ease-in-out infinite; }
+.alerta-pedido-opme:hover { background: #ffeab0; }
+.alerta-pedido-unidades { display: flex; gap: .7rem; flex-wrap: wrap; margin: 0 0 1rem; }
+.alerta-pedido-unidades .alerta-pedido-opme { flex-wrap: wrap; }
+.alerta-pedido-ponto { width: .9rem; height: .9rem; border-radius: 50%; background: #e05a00; flex: 0 0 auto;
+  box-shadow: 0 0 0 0 rgba(224, 90, 0, .6); animation: pulsa-ponto 1.2s ease-out infinite; }
+@keyframes pisca-pedido { 0%, 100% { background: #fff4d6; } 50% { background: #ffd56b; } }
+@keyframes pulsa-ponto { 0% { box-shadow: 0 0 0 0 rgba(224, 90, 0, .6); } 100% { box-shadow: 0 0 0 .7rem rgba(224, 90, 0, 0); } }
+@media (prefers-reduced-motion: reduce) { .alerta-pedido-opme, .alerta-pedido-ponto { animation: none; } }
+
+
+/* Cores dos cards dos módulos, por tipo de ação (igual em todos os módulos):
+   verde = fazer o trabalho do dia · azul = ver/consultar · amarelo = corrigir,
+   estornar ou devolver · roxo = consignado. Card com pendência (número > 0)
+   fica vermelho, por cima da cor do tipo. */
+.acao-card.alta { background: #fdecea; border-color: #f3c9c4; border-left-color: var(--vermelho); }
+.acao-card.alta h3 { color: var(--vermelho); }
+.legenda-cores { display: flex; flex-wrap: wrap; gap: .4rem 1.1rem; margin: -.4rem 0 1rem; font-size: .82rem; color: var(--cinza-texto, #555); }
+.legenda-cores span { display: inline-flex; align-items: center; gap: .35rem; }
+.legenda-cores i { width: .8rem; height: .8rem; border-radius: 3px; display: inline-block; }
+.legenda-cores .l-verde { background: var(--verde); } .legenda-cores .l-azul { background: var(--azul); }
+.legenda-cores .l-amarelo { background: var(--amarelo); } .legenda-cores .l-roxo { background: var(--roxo); }
+.legenda-cores .l-vermelho { background: var(--vermelho); }
+
+
+/* ---------- Integração com o layout do framework ---------- */
+.opme select { appearance: auto; }
+.opme input[type=checkbox], .opme input[type=radio] { width: auto; accent-color: var(--azul); }
+.opme input[type=checkbox] { width: 1.05rem; height: 1.05rem; vertical-align: middle; }
+.opme .botao { text-decoration: none; }
+.opme .carregando { padding: 3rem 1rem; text-align: center; color: var(--texto-suave); }
+.opme .marca-destaque { color: #14a38b; }
+
+/* Impressão: só o conteúdo da tela (sem menu lateral nem cabeçalho do layout) */
+@media print {
+  html, body, #app, .h-screen, #conteudo-rolagem { height: auto !important; overflow: visible !important; background: #fff !important; }
+  .overflow-hidden, .overflow-y-auto { overflow: visible !important; }
+  #conteudo-rolagem main > div { padding: 0 !important; max-width: none !important; }
+  .alerta-pedido-opme, .opme > .aviso { display: none !important; }
+}
+
+/* v18.22: item "sem destino" que chegou na farmácia — quadro de ação na conferência. */
+.linha-sem-destino {
+  display: flex; gap: 1rem; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; padding: .6rem .7rem; border: 1px solid var(--vermelho, #c0392b);
+  border-radius: .5rem; margin-bottom: .5rem; background: rgba(192, 57, 43, .05);
+}
+.linha-sem-destino strong { overflow-wrap: break-word; }
+
+/* v18.23: ciência da entrega da caixa ao paciente, na ficha do prontuário. */
+.linha-entrega {
+  display: flex; gap: 1rem; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; padding: .45rem 0; border-bottom: 1px dashed rgba(0,0,0,.12);
+}
+.linha-entrega:last-child { border-bottom: 0; }
+.linha-entrega strong { overflow-wrap: break-word; }

@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% import "indicadores/_componentes.html" as ui with context %}
+{% block titulo %}Financeiro e consumo · {{ APP_TITLE }}{% endblock %}
+
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <div>
+    <h1>Financeiro e consumo</h1>
+    <p>Quanto foi consumido, por quem e em quê. Período de {{ inicio|data_br }} a {{ fim|data_br }}.</p>
+  </div>
+</div>
+
+{{ ui.abas('financeiro', inicio, fim) }}
+{{ ui.filtro_periodo('/indicadores/financeiro', inicio, fim) }}
+
+<div class="grade-kpi">
+  {% for item in indicadores %}{{ ui.cartao(item) }}{% endfor %}
+</div>
+
+<div class="cartao">
+  <h2>Valor consumido nos últimos 12 meses</h2>
+  {{ ui.linha_tempo(evolucao, 'valor', 'Valor consumido por mês', formatador='moeda') }}
+</div>
+
+<div class="grade grade-2">
+  <div class="cartao">
+    <h2>Consumo por especialidade</h2>
+    {% if por_especialidade %}
+      <div class="tabela-rolagem">
+        <table>
+          <thead><tr><th>Especialidade</th><th class="num">Itens</th><th class="num">Cirurgias</th>
+                     <th class="num">Valor</th><th class="num">Custo médio</th></tr></thead>
+          <tbody>
+            {% for l in por_especialidade %}
+              <tr>
+                <td>{{ l.chave|title }}</td>
+                <td class="num">{{ l.quantidade }}</td>
+                <td class="num">{{ l.cirurgias }}</td>
+                <td class="num">{{ l.valor|moeda }}</td>
+                <td class="num">{{ (l.valor / l.cirurgias)|moeda if l.cirurgias else '—' }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div style="margin-top:1rem">{{ ui.barras(por_especialidade, 'chave', 'valor', formatador='moeda') }}</div>
+    {% else %}
+      <p class="vazio">Nenhum consumo no período.</p>
+    {% endif %}
+  </div>
+
+  <div class="cartao">
+    <h2>Consumo por sala</h2>
+    {% if por_sala %}
+      <div class="tabela-rolagem">
+        <table>
+          <thead><tr><th>Sala</th><th class="num">Itens</th><th class="num">Cirurgias</th>
+                     <th class="num">Valor</th></tr></thead>
+          <tbody>
+            {% for l in por_sala %}
+              <tr><td>{{ l.chave }}</td><td class="num">{{ l.quantidade }}</td>
+                  <td class="num">{{ l.cirurgias }}</td><td class="num">{{ l.valor|moeda }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="vazio">Nenhum consumo no período.</p>
+    {% endif %}
+  </div>
+</div>
+
+<div class="grade grade-2">
+  <div class="cartao">
+    <h2>Consumo por fornecedor</h2>
+    {% if por_fornecedor %}
+      {{ ui.barras(por_fornecedor, 'chave', 'valor', formatador='moeda', cor='roxo') }}
+    {% else %}
+      <p class="vazio">Nenhum consumo no período.</p>
+    {% endif %}
+  </div>
+
+  <div class="cartao">
+    <h2>Consumo por classificação</h2>
+    <p class="suave pequeno">Consignado, aquisição própria, doação e empréstimo — base para o
+       acerto com os fornecedores.</p>
+    {% if por_tipo %}
+      <div class="tabela-rolagem">
+        <table>
+          <thead><tr><th>Classificação</th><th class="num">Itens</th><th class="num">Valor</th></tr></thead>
+          <tbody>
+            {% for l in por_tipo %}
+              <tr><td>{{ l.chave|replace('_', ' ')|title }}</td>
+                  <td class="num">{{ l.quantidade }}</td>
+                  <td class="num">{{ l.valor|moeda }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="vazio">Nenhum consumo no período.</p>
+    {% endif %}
+  </div>
+</div>
+
+<div class="cartao">
+  <h2>Produtos mais consumidos</h2>
+  {% if por_produto %}
+    <div class="tabela-rolagem">
+      <table>
+        <thead><tr><th>Produto</th><th class="num">Unidades</th><th class="num">Valor</th>
+                   <th class="num">Valor unitário médio</th></tr></thead>
+        <tbody>
+          {% for l in por_produto %}
+            <tr>
+              <td>{{ l.chave }}</td>
+              <td class="num">{{ l.quantidade }}</td>
+              <td class="num">{{ l.valor|moeda }}</td>
+              <td class="num">{{ (l.valor / l.quantidade)|moeda if l.quantidade else '—' }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="vazio">Nenhum consumo no período.</p>
+  {% endif %}
+</div>
+
+<div class="cartao">
+  <h2>Cobertura de estoque</h2>
+  <p class="suave pequeno">
+    Com o consumo observado no período, quantos dias o estoque atual ainda dura. Os primeiros da
+    lista são os que acabam antes — atenção especial aos que estão zerados com consumo recente.
+  </p>
+  {% if cobertura %}
+    <div class="tabela-rolagem">
+      <table>
+        <thead><tr><th>Produto</th><th class="num">Em estoque</th>
+                   <th class="num">Consumido no período</th><th class="num">Cobertura</th></tr></thead>
+        <tbody>
+          {% for c in cobertura %}
+            <tr>
+              <td>{{ c.xProd }}</td>
+              <td class="num">{{ c.disponivel }}</td>
+              <td class="num">{{ c.usados }}</td>
+              <td class="num">
+                {% if c.dias_cobertura is none %}
+                  <span class="etiqueta cinza">sem consumo</span>
+                {% elif c.dias_cobertura < 15 %}
+                  <span class="etiqueta vermelho">{{ c.dias_cobertura|int }} dias</span>
+                {% elif c.dias_cobertura < 45 %}
+                  <span class="etiqueta amarelo">{{ c.dias_cobertura|int }} dias</span>
+                {% else %}
+                  <span class="etiqueta verde">{{ c.dias_cobertura|int }} dias</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="vazio">Sem dados suficientes para calcular cobertura.</p>
+  {% endif %}
+</div>
+{% endblock %}

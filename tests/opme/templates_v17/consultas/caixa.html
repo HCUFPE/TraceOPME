@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block titulo %}Caixa {{ caixa.id_caixa }} · {{ APP_TITLE }}{% endblock %}
+
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <div>
+    <h1>Caixa <span class="mono">{{ caixa.id_caixa }}</span></h1>
+    <p>{{ caixa.nome }} · fornecedor {{ caixa.fornecedor or '—' }} ·
+       {% if caixa.bloqueada %}<span class="etiqueta vermelho">BLOQUEADA — conferir</span>{% else %}<span class="etiqueta verde">liberada</span>{% endif %}</p>
+  </div>
+  <div class="acoes">
+    {% if 'farmacia' in modulos %}<a class="botao secundario" href="/farmacia/caixas-consignado/{{ caixa.id_caixa }}">Abrir na Farmácia</a>{% endif %}
+    <a class="botao secundario" href="javascript:history.back()">Voltar</a>
+  </div>
+</div>
+
+{% if evento %}
+<div class="cartao" style="border-left:5px solid var(--azul)">
+  <h2>No momento do movimento</h2>
+  <p style="margin-top:0"><strong>{{ {'devolver_caixa': 'Devolução da caixa', 'devolucao_caixa_divergente': 'Devolução da caixa RECUSADA (contagem não bateu)', 'conferir_caixa': 'Conferência da caixa'}.get(evento.tipo, evento.tipo|replace('_',' ')|capitalize) }}</strong>
+     em {{ evento.data_evento|data_hora_br }} por {{ evento.usuario }}
+     {% if evento.prontuario %}· prontuário {{ evento.prontuario }}{% if evento.paciente %} ({{ evento.paciente }}){% endif %}, sala {{ evento.sala }}{% endif %}.<br>
+     {% if evento.motivo %}<span class="pequeno">{{ evento.motivo }}</span><br>{% endif %}
+     <span class="suave pequeno">{{ evento.observacao or '' }}</span></p>
+
+  <div class="grade grade-2">
+    <div>
+      <h3>Na caixa naquele momento ({{ naquele|length }})</h3>
+      {% if naquele %}
+        <div class="tabela-rolagem"><table>
+          <thead><tr><th>Material</th><th>AGHU</th><th>Lote</th><th>Hoje</th></tr></thead>
+          <tbody>{% for i in naquele %}
+            <tr><td class="pequeno">{{ i.produto }}</td><td class="mono pequeno">{{ i.codigo_aghu or '—' }}</td>
+                <td class="mono pequeno">{{ i.nLote or '—' }}</td>
+                <td><span class="etiqueta {{ cor_status(i.status) }}">{{ rotulo_status(i.status) }}</span></td></tr>
+          {% endfor %}</tbody></table></div>
+      {% else %}<p class="vazio">Nenhum item.</p>{% endif %}
+    </div>
+    <div>
+      {% if evento.tipo == 'devolver_caixa' %}
+        <h3>Devolvidos nesta devolução ({{ devolvidos|length }})</h3>
+        {% for i in devolvidos %}<div class="pequeno"><span class="mono">{{ i.codigo_aghu or '—' }}</span> · {{ i.produto }} · lote {{ i.nLote or '—' }}</div>
+        {% else %}<p class="vazio">—</p>{% endfor %}
+      {% endif %}
+      {% if usados_no_atendimento %}
+        <h3 style="margin-top:1rem">Usados da caixa neste atendimento ({{ usados_no_atendimento|length }})</h3>
+        {% for i in usados_no_atendimento %}<div class="pequeno"><span class="mono">{{ i.codigo_aghu or '—' }}</span> · {{ i.produto }} · lote {{ i.nLote or '—' }} · {{ i.saiu_em|data_hora_br }}</div>{% endfor %}
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<div class="cartao">
+  <h2>Agora — {{ caixa.total }} item(ns) na caixa</h2>
+  {% if agora %}
+    <div class="tabela-rolagem"><table>
+      <thead><tr><th>Material</th><th>AGHU</th><th>Lote</th><th>Validade</th><th class="num">Qtd.</th></tr></thead>
+      <tbody>{% for r in agora %}
+        <tr><td>{{ r.produto }}</td><td class="mono pequeno">{{ r.codigo_aghu or '—' }}</td><td class="mono">{{ r.nLote or '—' }}</td>
+            <td>{{ r.dVal|data_br or '—' }}</td><td class="num"><strong>{{ r.quantidade }}</strong></td></tr>
+      {% endfor %}</tbody></table></div>
+  {% else %}<p class="vazio">Caixa vazia.</p>{% endif %}
+  {% if caixa.bloqueada %}<p class="aviso erro" style="margin-top:.8rem">{{ caixa.bloqueio_motivo }}</p>{% endif %}
+</div>
+
+<div class="cartao">
+  <h2>Histórico da caixa</h2>
+  <div class="tabela-rolagem"><table>
+    <thead><tr><th>Quando</th><th>Movimento</th><th>Prontuário / sala</th><th>Usuário</th><th>Detalhe</th></tr></thead>
+    <tbody>{% for h in historico %}
+      <tr><td class="pequeno">{{ h.data_evento|data_hora_br }}</td>
+          <td class="pequeno">{{ {'criar_caixa':'Caixa criada','devolver_caixa':'Devolução da caixa','devolucao_caixa_divergente':'Devolução RECUSADA','conferir_caixa':'Conferida e liberada'}.get(h.tipo, h.tipo|replace('_',' ')|capitalize) }}</td>
+          <td class="pequeno">{% if h.prontuario %}{{ h.prontuario }} · sala {{ h.sala }}{% else %}—{% endif %}</td>
+          <td class="pequeno">{{ h.usuario }}</td>
+          <td class="pequeno">{{ h.motivo or '' }} <span class="suave">{{ h.observacao or '' }}</span>
+            {% if h.tipo in ('devolver_caixa','devolucao_caixa_divergente','conferir_caixa') %}<br><a href="/consultas/caixa/{{ caixa.id_caixa }}?evento={{ h.id_evento }}">ver neste momento</a>{% endif %}</td></tr>
+    {% else %}<tr><td colspan="5" class="vazio">Sem movimentos.</td></tr>{% endfor %}</tbody></table></div>
+</div>
+{% endblock %}

@@ -1,0 +1,42 @@
+<html><head><meta charset="utf-8"><title>Materiais Consumidos Cirurgia (simulado)</title></head><body style="font-family:sans-serif">
+<!-- Simulação da tela materialPorCirurgiaCRUD.xhtml do AGHU (ids iguais aos do AGHU). -->
+<form id="formMaterialConsumidoLista">
+<fieldset><legend>Materiais Consumidos Cirurgia</legend>
+ Agenda <input id="numeroAgenda:numeroAgenda:inputId_input" value="64" disabled>
+ Data <input id="dataCirurgia:dataCirurgia:inputId" value="09/11/2026" disabled>
+ Paciente <input id="nomePaciente:nomePaciente:inputId" value="ANA BEATRIZ DA SILVA" disabled size="40">
+</fieldset>
+<fieldset><legend>Cadastrar Materiais Consumidos por Cirurgia</legend>
+ Material <input id="suggestionMaterial:suggestionMaterial:suggestion_input"><input type="hidden" id="suggestionMaterial:suggestionMaterial:suggestion_hinput">
+ <div id="suggestionMaterial:suggestionMaterial:suggestion_panel" style="display:none;border:1px solid #999"><table><tbody></tbody></table></div>
+ Unidade Consumo <input id="suggestionUnidade:suggestionUnidade:suggestion_input" disabled>
+ Quantidade <input id="qtdMat:qtdMat:inputId_input" size="5">
+ <button type="button" id="btnAdicionarMaterial:button">Adicionar</button>
+ <div id="msgs"></div>
+ <table border="1"><thead><tr><th>Ação</th><th>Material</th><th>Un</th><th>Un consumo</th><th>Quantidade</th></tr></thead>
+ <tbody id="listaMaterial:resultList_data"></tbody></table>
+ <button type="button" id="bt_gravar:button">Gravar</button>
+</fieldset></form>
+<script>
+const CAT={"401557":"CATETER CENTRAL, TOTALMENTE IMPLANTAVEL","24870":"INTRODUTOR FEMURAL 5F X 11CM","87578":"FIO GUIA HIDROFILICO","4015570":"OUTRO MATERIAL"};
+const lista=[["24870",""],["87578",""]]; window.LOG=[];
+function q(id){return document.getElementById(id);}
+function render(){ q("listaMaterial:resultList_data").innerHTML=lista.map((l,i)=>`<tr data-ri="${i}"><td>ed</td><td>${l[0]} - ${CAT[l[0]]}</td><td>UNIDADE</td><td>UNIDADE</td><td><input id="listaMaterial:resultList:${i}:quantidade_input" value="${l[1]}" onchange="lista[${i}][1]=this.value"></td></tr>`).join(""); }
+render();
+const inp=q("suggestionMaterial:suggestionMaterial:suggestion_input"), pan=q("suggestionMaterial:suggestionMaterial:suggestion_panel");
+inp.addEventListener("input",()=>setTimeout(()=>{
+  const t=inp.value.trim(); const ops=Object.entries(CAT).filter(([c])=>c.startsWith(t));
+  pan.querySelector("tbody").innerHTML=ops.map(([c,d])=>`<tr class="ui-autocomplete-item" data-item-label="${c}"><td>${c}</td><td>${d}</td><td>UN</td></tr>`).join("");
+  pan.style.display=ops.length?"block":"none";
+  pan.querySelectorAll("tr").forEach(tr=>tr.onclick=()=>{inp.value=tr.dataset.itemLabel;q("suggestionMaterial:suggestionMaterial:suggestion_hinput").value=tr.dataset.itemLabel;pan.style.display="none";q("suggestionUnidade:suggestionUnidade:suggestion_input").value="UNIDADE";});
+},150));
+q("btnAdicionarMaterial:button").onclick=()=>{
+  const m=q("suggestionMaterial:suggestionMaterial:suggestion_hinput").value, qt=q("qtdMat:qtdMat:inputId_input").value;
+  if(!m||!qt){q("msgs").innerHTML='<span class="ui-messages-error-summary">Campo obrigatório</span>';return;}
+  if(lista.some(l=>l[0]===m)){q("msgs").innerHTML='<span class="ui-messages-error-summary">Material já incluído</span>';return;}
+  lista.push([m,qt]); window.LOG.push(["add",m,qt]); q("msgs").innerHTML=""; render();
+  inp.value="";q("suggestionMaterial:suggestionMaterial:suggestion_hinput").value="";q("qtdMat:qtdMat:inputId_input").value="";
+};
+q("bt_gravar:button").onclick=()=>{ for(let i=lista.length-1;i>=0;i--) if(!lista[i][1]) lista.splice(i,1); render();
+  q("msgs").innerHTML='<span class="ui-messages-info-summary">Lista de materiais gravada com sucesso.</span>'; window.LOG.push(["gravar"]); };
+</script></body></html>

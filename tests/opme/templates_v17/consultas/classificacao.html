@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+{% block titulo %}Por classificação · {{ APP_TITLE }}{% endblock %}
+
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <div>
+    <h1>Material por classificação</h1>
+    <p>Consignado, aquisição própria, doação e empréstimo em um período —
+       base para a conferência com o fornecedor e para a prestação de contas.</p>
+  </div>
+  <div class="acoes">
+    {% if linhas %}
+      <a class="botao secundario"
+         href="/consultas/classificacao?inicio={{ inicio }}&fim={{ fim }}&tipo_entrada={{ tipo_entrada }}&fornecedor={{ fornecedor }}&base={{ base }}&detalhado={{ 1 if detalhado else 0 }}&exportar=1">
+        Exportar CSV{{ ' detalhado' if detalhado }}
+      </a>
+    {% endif %}
+    <a class="botao secundario" href="/consultas">Voltar</a>
+  </div>
+</div>
+
+<form method="get" class="cartao">
+  <div class="filtros">
+    <div class="campo"><label>De</label><input type="date" name="inicio" value="{{ inicio }}"></div>
+    <div class="campo"><label>Até</label><input type="date" name="fim" value="{{ fim }}"></div>
+    <div class="campo">
+      <label>Classificação</label>
+      <select name="tipo_entrada">
+        <option value="">todas</option>
+        {% for codigo, nome in tipos.items() %}
+          <option value="{{ codigo }}" {{ 'selected' if tipo_entrada == codigo }}>{{ nome }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="campo"><label>Fornecedor</label>
+      <input type="text" name="fornecedor" value="{{ fornecedor }}"></div>
+    <div class="campo">
+      <label>Contar pela data de</label>
+      <select name="base">
+        <option value="entrada" {{ 'selected' if base != 'uso' }}>entrada no almoxarifado</option>
+        <option value="uso" {{ 'selected' if base == 'uso' }}>uso no paciente</option>
+      </select>
+    </div>
+    <div class="campo">
+      <label>Mostrar</label>
+      <select name="detalhado">
+        <option value="1" {{ 'selected' if detalhado }}>cada material, com paciente, lote e validade</option>
+        <option value="0" {{ 'selected' if not detalhado }}>resumo por produto (totais)</option>
+      </select>
+    </div>
+    <button class="botao">Filtrar</button>
+  </div>
+  <p class="suave pequeno" style="margin:.6rem 0 0">
+    “Entrada no almoxarifado” responde <em>o que entrou</em> no período;
+    “uso no paciente” responde <em>o que foi consumido</em>.
+    Para pedir a nota do consignado ao fornecedor, conte pela data de <em>uso no
+    paciente</em> — é o consumo que gera o faturamento, e o fornecedor emite a
+    nota contra lote, série e paciente.
+  </p>
+</form>
+
+{% if totais %}
+<div class="grade grade-4" style="margin-bottom:1.5rem">
+  {% for t in totais %}
+    <div class="cartao">
+      <div class="rotulo">{{ tipos[t.tipo_entrada] if t.tipo_entrada in tipos else t.tipo_entrada }}</div>
+      <div class="numero">{{ t.quantidade }}</div>
+      <div class="rotulo">{{ t.valor_total|moeda }}</div>
+    </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="cartao">
+  <h2>
+    {% if detalhado %}
+      {{ linhas|length }} material(is) de {{ inicio|data_br }} a {{ fim|data_br }}
+    {% else %}
+      {{ linhas|length }} linha(s) de {{ inicio|data_br }} a {{ fim|data_br }}
+    {% endif %}
+  </h2>
+
+  {% if cortada %}
+    <div class="aviso alerta">
+      <strong>Lista cortada em {{ limite_detalhe }} materiais.</strong> Há mais
+      material no período do que cabe nesta consulta — não mande esta relação ao
+      fornecedor como se fosse completa. Reduza o período, ou filtre por um
+      fornecedor de cada vez, e exporte em partes.
+    </div>
+  {% endif %}
+
+  {% if detalhado and not somente_utilizados %}
+    <p class="suave pequeno" style="margin:0 0 .8rem">
+      Contando pela data de entrada: material que ainda não foi usado aparece
+      sem paciente, porque ainda não há procedimento vinculado.
+    </p>
+  {% endif %}
+
+  {% if linhas and detalhado %}
+    <div class="tabela-rolagem">
+      <table class="tabela-detalhe">
+        <thead>
+          <tr><th>Paciente</th><th>Procedimento</th><th>Código</th><th>Produto</th>
+              <th>Lote</th><th>Validade</th><th>Nº de série</th><th>Fornecedor</th>
+              <th class="num">Valor</th><th>NF</th></tr>
+        </thead>
+        <tbody>
+          {% for l in linhas %}
+            <tr>
+              <td>
+                {{ l.paciente or '—' }}
+                {% if l.prontuario %}
+                  <div class="pequeno suave">prontuário {{ l.prontuario }}</div>
+                {% endif %}
+              </td>
+              <td class="pequeno">{{ l.data_procedimento|data_br or '—' }}</td>
+              <td class="mono">
+                {{ l.codigo_aghu or '—' }}
+                {% if l.codigo_barras %}
+                  <div class="pequeno suave">{{ l.codigo_barras }}</div>
+                {% endif %}
+              </td>
+              <td>
+                {{ l.xProd }}
+                {% if l.marca_fabricante %}
+                  <div class="pequeno suave">{{ l.marca_fabricante }}</div>
+                {% endif %}
+              </td>
+              <td class="mono">{{ l.nLote or '—' }}</td>
+              <td class="mono">{{ l.dVal|data_br or '—' }}</td>
+              <td class="mono pequeno">{{ l.numero_serie or '—' }}</td>
+              <td class="pequeno">{{ l.fornecedor or '—' }}</td>
+              <td class="num">{{ l.vUnCom|moeda }}</td>
+              <td class="pequeno">
+                {% if l.numero_nf %}
+                  {{ l.numero_nf }}
+                {% else %}
+                  <span class="etiqueta amarelo">a pedir</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% elif linhas %}
+    <div class="tabela-rolagem">
+      <table>
+        <thead>
+          <tr><th>Classificação</th><th>Código AGHU</th><th>Produto</th><th>Fornecedor</th>
+              <th class="num">Qtd.</th><th class="num">Valor</th><th>Entradas</th></tr>
+        </thead>
+        <tbody>
+          {% for l in linhas %}
+            <tr>
+              <td>
+                <span class="etiqueta {{ 'roxo' if l.tipo_entrada == 'consignado' else 'azul' }}">
+                  {{ tipos[l.tipo_entrada] if l.tipo_entrada in tipos else l.tipo_entrada }}
+                </span>
+              </td>
+              <td class="mono">{{ l.codigo_aghu or '—' }}</td>
+              <td>{{ l.xProd }}</td>
+              <td class="pequeno">{{ l.fornecedor or '—' }}</td>
+              <td class="num">{{ l.quantidade }}</td>
+              <td class="num">{{ l.valor_total|moeda }}</td>
+              <td class="pequeno suave">
+                {{ l.primeira_entrada|data_br }}
+                {% if l.ultima_entrada != l.primeira_entrada %} a {{ l.ultima_entrada|data_br }}{% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="vazio">Nenhum material encontrado com esses filtros no período.</p>
+  {% endif %}
+</div>
+{% endblock %}

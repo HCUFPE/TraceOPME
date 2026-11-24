@@ -1,0 +1,238 @@
+{% extends "base.html" %}
+{% block titulo %}Envio {{ rem.id_remessa }} · {{ APP_TITLE }}{% endblock %}
+
+{% block conteudo %}
+<div class="cabecalho-pagina nao-imprimir">
+  <div>
+    <h1>Envio para a {{ rem.farmacia_rotulo }}</h1>
+    <p class="mono pequeno">{{ rem.id_remessa }} · aberto por {{ rem.criado_por }} em {{ rem.criado_em|data_hora_br }}
+      {% if rem.enviada_em %} · enviado por {{ rem.enviada_por }} em {{ rem.enviada_em|data_hora_br }}{% endif %}</p>
+  </div>
+  <div class="acoes">
+    {% if rem.status != 'aberta' %}<button class="botao secundario" onclick="window.print()">Imprimir romaneio</button>{% endif %}
+    <a class="botao secundario" href="/almoxarifado/envios">Voltar</a>
+  </div>
+</div>
+
+{% if rem.status == 'aberta' %}
+<div class="bipagem nao-imprimir">
+  <div class="cartao" style="border:2px solid var(--azul, #0c3a67)">
+    <p style="margin:0 0 .8rem">Enviando para a <strong>{{ rem.farmacia_rotulo }}</strong>.
+      <a href="/almoxarifado/envios" data-sem-foco="1">trocar de farmácia</a></p>
+    <form method="post" action="/almoxarifado/envio/{{ rem.id_remessa }}/finalizar" style="margin:0 0 1rem;padding-bottom:1rem;border-bottom:1px solid var(--borda, #d9dee5)"
+          data-confirmar="Finalizar o envio para a {{ rem.farmacia_rotulo }}? Depois disso a farmácia confere e dá ciência.">
+      <div class="linha-botoes">
+        <button class="botao" data-sem-foco="1">Finalizar envio (<span id="envio-total">{{ lista|length }}</span> item(ns))</button>
+        <label class="pequeno" style="display:flex;align-items:center;gap:.4rem;font-weight:400">
+          <input type="checkbox" id="som" checked data-sem-foco="1" style="width:auto"> som de confirmação</label>
+      </div>
+      <details style="margin-top:.5rem"><summary class="pequeno" style="cursor:pointer">Observação <span class="suave">(se precisar)</span></summary>
+        <input type="text" name="observacao" placeholder="Ex.: reposição semanal" data-sem-foco="1" style="margin-top:.4rem"></details>
+    </form>
+    <p class="pequeno" style="margin:0 0 .8rem">Bipe cada OPME que vai para a farmácia — cada bip é uma unidade.</p>
+    <div class="campo" style="margin:0">
+      <label for="codigo">Bipe o código de barras</label>
+      <input type="text" id="codigo" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="aguardando leitura…">
+    </div>
+    <div id="ultimo-nao-registrado" class="pequeno" hidden style="margin-top:.4rem;color:var(--vermelho, #b3261e);font-weight:600"></div>
+    <div class="pequeno suave" style="margin-top:.4rem">O campo fica sempre ativo. Também aceita etiqueta GS1, código interno,
+      número de série ou o ID da unidade. Cada bip tira do estoque do almoxarifado na hora (“em trânsito para a farmácia”).</div>
+    <div id="envio-escolha" hidden style="margin-top:.8rem" class="aviso alerta"></div>
+
+    <div class="aviso info" id="lista-envio-bloco" style="margin-top:1rem" {% if not lista %}hidden{% endif %}>
+      <strong>No envio para a {{ rem.farmacia_rotulo }}:</strong> <span id="envio-contagem">{{ lista|length }} item(ns)</span>
+      <span class="pequeno suave">— o último bipado fica em cima.</span>
+      <table style="margin-top:.6rem"><tbody id="lista-envio">
+        {% for i in lista %}
+        <tr><td class="pequeno"><span class="mono"><strong>AGHU {{ i.aghu }}</strong></span> · {{ i.descricao }}<br>
+              <span class="mono suave">lote {{ i.lote }} · val. {{ i.validade }}</span></td>
+            <td class="pequeno suave">{{ i.quando }} · {{ i.por }}</td>
+            <td style="text-align:right"><button type="button" class="botao secundario pequeno" data-tirar="{{ i.id_item }}" data-sem-foco="1">tirar</button></td></tr>
+        {% endfor %}
+      </tbody></table>
+    </div>
+
+    <div id="resultado"></div>
+
+  </div>
+
+  <div class="cartao">
+    <h2>Consultar antes de bipar</h2>
+    <p class="suave pequeno">Há <strong>{{ disponiveis_total }}</strong> item(ns) disponíveis no estoque do almoxarifado.
+      Use a busca se precisar conferir se algo está disponível.</p>
+    <form method="get" action="/almoxarifado/envio/{{ rem.id_remessa }}">
+      <label for="busca-estoque" class="pequeno"><strong>Código AGHU, descrição, lote ou código de barras</strong></label>
+      <input type="text" id="busca-estoque" name="busca" value="{{ busca }}" data-sem-foco="1" placeholder="ex.: 23265 ou introdutor">
+      <button class="botao secundario pequeno" style="margin-top:.4rem" data-sem-foco="1">Buscar</button>
+    </form>
+    {% if busca %}
+      {% if resultados %}
+      <ul class="pequeno" style="margin:.6rem 0 0 1rem;padding:0">
+        {% for r in resultados %}<li style="margin-bottom:.4rem"><span class="mono">AGHU {{ r.codigo_aghu or '—' }}</span> · {{ r.descricao }}<br>
+          <span class="suave">lote {{ r.nLote or '—' }} · val. {{ r.validade }} · <strong>{{ r.quantidade }}</strong> disp.</span></li>{% endfor %}
+      </ul>
+      {% else %}<p class="pequeno" style="margin-top:.6rem;color:var(--vermelho, #b3261e)">Nada disponível no almoxarifado com “{{ busca }}”.</p>{% endif %}
+    {% endif %}
+  </div>
+</div>
+
+<div id="confirmacao-bip" class="confirmacao-bip" hidden role="alertdialog" aria-live="assertive">
+  <div class="confirmacao-bip-janela">
+    <div class="confirmacao-bip-icone" id="confirmacao-bip-icone"></div>
+    <h2 id="confirmacao-bip-titulo"></h2>
+    <p class="confirmacao-bip-produto" id="confirmacao-bip-produto"></p>
+    <p class="confirmacao-bip-detalhe" id="confirmacao-bip-detalhe"></p>
+    <button type="button" class="botao" id="confirmacao-bip-ok" data-sem-foco="1" hidden>OK, entendi</button>
+    <div class="confirmacao-bip-dica" id="confirmacao-bip-dica"></div>
+  </div>
+</div>
+{% endif %}
+{% if rem.status == 'enviada' %}
+  <div class="aviso info nao-imprimir">Envio finalizado — aguardando a conferência da {{ rem.farmacia_rotulo }}.</div>
+{% elif rem.status == 'conferida' %}
+  <div class="aviso sucesso nao-imprimir">Conferido por <strong>{{ rem.conferida_nome }}</strong> em {{ rem.conferida_em|data_hora_br }}
+    ({{ 'bipando' if rem.modo_conferencia == 'bipando' else 'pela lista' }}).</div>
+{% endif %}
+
+{% if rem.status != 'aberta' %}
+<div class="cartao">
+  <h2 class="so-imprimir" style="display:none">Romaneio de envio {{ rem.id_remessa }} — {{ rem.farmacia_rotulo }}</h2>
+  <p class="so-imprimir pequeno" style="display:none">Enviado por {{ rem.enviada_por or rem.criado_por }} em {{ (rem.enviada_em or rem.criado_em)|data_hora_br }}{% if rem.observacao %} · {{ rem.observacao }}{% endif %}</p>
+  <h2 class="nao-imprimir">Itens do envio ({{ rem.itens|length }})</h2>
+  {% if rem.itens %}
+  <div class="tabela-rolagem"><table>
+    <thead><tr><th>AGHU</th><th>Material</th><th>Lote</th><th>Validade</th><th>Situação</th><th class="nao-imprimir"></th></tr></thead>
+    <tbody>
+      {% for i in rem.itens %}
+      <tr>
+        <td class="mono pequeno">{{ i.codigo_aghu or '—' }}</td>
+        <td class="pequeno">{{ i.descricao }}</td>
+        <td class="mono pequeno">{{ i.nLote or '—' }}</td>
+        <td class="pequeno">{{ i.validade }}</td>
+        <td class="pequeno">{% if i.situacao == 'pendente' %}{{ 'no envio' if rem.status == 'aberta' else 'aguardando a farmácia' }}
+            {% elif i.situacao == 'recebido' %}<span class="etiqueta verde">recebido{% if i.tratativa %} depois{% endif %}</span>
+            {% elif i.tratativa %}<span class="etiqueta cinza">{{ tratativas[i.tratativa] }}</span>
+            {% else %}<span class="etiqueta vermelho">não recebido</span>{% endif %}</td>
+        <td class="nao-imprimir">{% if rem.status == 'aberta' %}
+          <form method="post" action="/almoxarifado/envio/item/{{ i.id_item }}/remover" style="margin:0">
+            <button class="botao secundario pequeno">tirar</button></form>{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}
+  <p class="vazio">Nenhum item bipado ainda.</p>
+  {% endif %}
+  <div class="so-imprimir" style="display:none;margin-top:2rem">
+    <p>Enviado por: ________________________ &nbsp;&nbsp; Recebido por (farmácia): ________________________ &nbsp;&nbsp; Data: ___/___/_____</p>
+  </div>
+</div>
+
+{% endif %}
+{% if rem.status == 'aberta' %}
+<script>
+(function () {
+  var campo = document.getElementById("codigo"), qtd = null;
+  var resultado = document.getElementById("resultado"), escolha = document.getElementById("envio-escolha");
+  var naoReg = document.getElementById("ultimo-nao-registrado");
+  var conf = document.getElementById("confirmacao-bip"), confOk = document.getElementById("confirmacao-bip-ok");
+  var falhaAberta = false, relogio = null;
+  function esc(t) { var d = document.createElement("div"); d.textContent = t == null ? "" : String(t); return d.innerHTML; }
+  function som(f, t) { if (!document.getElementById("som").checked) return;
+    try { var c = new (window.AudioContext || window.webkitAudioContext)(), o = c.createOscillator();
+      o.frequency.value = f; o.connect(c.destination); o.start(); o.stop(c.currentTime + (t || 0.12)); } catch (e) {} }
+  function focar() { if (!falhaAberta && true) campo.focus({ preventScroll: true }); }
+  function mostrarResultado(ok, titulo, detalhe) {
+    resultado.innerHTML = '<div class="resultado-linha ' + (ok ? "ok" : "falha") + '"><div class="icone">' + (ok ? "✓" : "✕") +
+      '</div><div><div class="titulo">' + esc(titulo) + '</div><div class="detalhe">' + esc(detalhe) + "</div></div></div>";
+    resultado.classList.remove("piscar-ok", "piscar-erro"); void resultado.offsetWidth;
+    resultado.classList.add(ok ? "piscar-ok" : "piscar-erro");
+  }
+  function fecharConf() { conf.hidden = true; falhaAberta = false; campo.disabled = false; if (relogio) clearTimeout(relogio); focar(); }
+  function mostrarConf(ok, titulo, produto, detalhe) {
+    conf.classList.toggle("falha", !ok);
+    document.getElementById("confirmacao-bip-icone").textContent = ok ? "✓" : "✕";
+    document.getElementById("confirmacao-bip-titulo").textContent = titulo;
+    document.getElementById("confirmacao-bip-produto").textContent = produto || "";
+    document.getElementById("confirmacao-bip-detalhe").textContent = detalhe || "";
+    confOk.hidden = false; confOk.style.display = ok ? "none" : "";
+    document.getElementById("confirmacao-bip-dica").textContent = ok ? "Pode bipar o próximo." :
+      "Este material NÃO foi para o envio. Clique em OK para continuar.";
+    conf.hidden = false;
+    if (ok) { relogio = setTimeout(fecharConf, 2000); } else { falhaAberta = true; campo.disabled = true; campo.blur(); }
+  }
+  conf.addEventListener("click", function (e) { if (!falhaAberta || e.target.closest("#confirmacao-bip-ok")) fecharConf(); });
+  document.addEventListener("keydown", function (e) { if (falhaAberta && !conf.hidden) e.preventDefault(); });
+  function desenhar(lista) {
+    var corpo = document.getElementById("lista-envio");
+    corpo.innerHTML = lista.map(function (i) {
+      return '<tr class="novo-na-lista"><td class="pequeno"><span class="mono"><strong>AGHU ' + esc(i.aghu) + "</strong></span> · " +
+        esc(i.descricao) + '<br><span class="mono suave">lote ' + esc(i.lote) + " · val. " + esc(i.validade) + "</span></td>" +
+        '<td class="pequeno suave">' + esc(i.quando) + " · " + esc(i.por) + "</td>" +
+        '<td style="text-align:right"><button type="button" class="botao secundario pequeno" data-tirar="' + i.id_item +
+        '" data-sem-foco="1">tirar</button></td></tr>';
+    }).join("");
+    document.getElementById("lista-envio-bloco").hidden = !lista.length;
+    document.getElementById("envio-contagem").textContent = lista.length + " item(ns)";
+    document.getElementById("envio-total").textContent = lista.length;
+  }
+  function enviar(codigo, grupo) {
+    fetch("/almoxarifado/envio/{{ rem.id_remessa }}/bipar", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ codigo: codigo, quantidade: 1, grupo: grupo || "" })
+    }).then(function (r) { return r.json(); }).then(function (d) {
+      escolha.hidden = true; escolha.innerHTML = "";
+      if (d.ok) {
+        som(880); naoReg.hidden = true;
+        var det = "AGHU " + d.item.aghu + " · lote " + d.item.lote + " · validade " + d.item.validade + "";
+        mostrarResultado(true, d.item.descricao, det);
+        mostrarConf(true, "ENVIADO PARA A FARMÁCIA", d.item.descricao, det + "\n{{ rem.farmacia_rotulo }}");
+        desenhar(d.lista || []);
+      } else if (d.escolher) {
+        som(440);
+        resultado.innerHTML = "";
+        escolha.hidden = false;
+        escolha.innerHTML = "<strong>" + esc(d.mensagem) + "</strong><table style='margin-top:.4rem'><tbody>" + d.opcoes.map(function (o, n) {
+          return "<tr><td class='mono pequeno'>" + esc(o.aghu) + "</td><td class='pequeno'>" + esc(o.descricao) +
+            "</td><td class='mono pequeno'>lote " + esc(o.lote) + "</td><td class='pequeno'>" + esc(o.validade) +
+            "</td><td class='num'>" + o.disponivel + ' disp.</td><td><button type="button" class="botao pequeno" data-sem-foco="1" data-n="' + n + '">é este</button></td></tr>';
+        }).join("") + "</tbody></table>";
+        escolha.querySelectorAll("[data-n]").forEach(function (b) {
+          b.onclick = function () { enviar(d.codigo, d.opcoes[Number(b.dataset.n)].grupo); };
+        });
+      } else {
+        som(200, 0.3);
+        naoReg.hidden = false; naoReg.textContent = "Última leitura NÃO registrada: " + codigo;
+        mostrarResultado(false, d.titulo || "Não foi possível registrar", d.mensagem);
+        mostrarConf(false, d.nao_cadastrado ? "MATERIAL NÃO CADASTRADO" : "NÃO REGISTRADO", "Código lido: " + codigo, d.mensagem);
+      }
+    }).catch(function () { mostrarResultado(false, "Falha de conexão", "Verifique a rede e bipe de novo."); })
+      .finally(focar);
+  }
+  campo.addEventListener("keydown", function (e) {
+    if (e.key !== "Enter") return; e.preventDefault();
+    var c = campo.value.trim(); campo.value = ""; if (c) enviar(c);
+  });
+  document.addEventListener("click", function (e) {
+    var t = e.target.closest("[data-tirar]");
+    if (t) {
+      fetch("/almoxarifado/envio/item/" + t.dataset.tirar + "/tirar", { method: "POST" }).then(function (r) { return r.json(); })
+        .then(function (d) { mostrarResultado(d.ok, d.ok ? "Tirado do envio" : "Não foi possível tirar", d.mensagem);
+          if (d.ok) desenhar(d.lista || []); focar(); });
+      return;
+    }
+    if (!e.target.closest("input, select, textarea, button, a, label, summary")) focar();
+  });
+  focar();
+})();
+</script>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<style>
+  @media print {
+    .nao-imprimir, header.topo, footer.rodape, .alerta-pedido-opme, main > .aviso { display: none !important; }
+    .so-imprimir { display: block !important; }
+  }
+</style>
+{% endblock %}

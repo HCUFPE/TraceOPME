@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block titulo %}Empenhos · {{ APP_TITLE }}{% endblock %}
+
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <div>
+    <h1>Empenhos</h1>
+    <p>Saldo por fornecedor e material consignado.</p>
+  </div>
+  <div class="acoes">
+    <a class="botao" href="/consignados/empenhos/novo">Cadastrar empenho</a>
+    <a class="botao secundario" href="/consignados">Voltar</a>
+  </div>
+</div>
+
+<form method="get" class="cartao">
+  <div class="filtros">
+    <div class="campo"><label>Fornecedor</label><input type="text" name="fornecedor" value="{{ fornecedor }}"></div>
+    <div class="campo">
+      <label>Situação</label>
+      <select name="status">
+        <option value="" {{ 'selected' if not status }}>todos</option>
+        <option value="ativo" {{ 'selected' if status == 'ativo' }}>ativos</option>
+        <option value="encerrado" {{ 'selected' if status == 'encerrado' }}>encerrados</option>
+      </select>
+    </div>
+    <div class="campo"><label>AGHU, material ou número</label><input type="text" name="termo" value="{{ termo }}"></div>
+    <button class="botao">Filtrar</button>
+  </div>
+</form>
+
+<div class="cartao">
+  {% if empenhos %}
+    <div class="tabela-rolagem">
+      <table>
+        <thead><tr><th>Nº</th><th>Fornecedor</th><th>AGHU</th><th>Material</th><th>Vigência</th>
+                   <th class="num">Saldo</th><th class="num">Valor do saldo</th>
+                   <th>Situação</th><th></th></tr></thead>
+        <tbody>
+          {% for e in empenhos %}
+            <tr>
+              <td class="mono">{{ e.identificacao or e.numero }}</td>
+              <td>{{ e.fornecedor }}</td>
+              <td class="mono pequeno">{{ e.codigos_aghu|join(', ') or '—' }}</td>
+              <td>{{ e.material }}
+                {% if e.no_limite %}<br><span class="etiqueta vermelho pequeno">{{ 'SEM SALDO' if e.saldo == 0 else 'limite de segurança — pedir mais empenho' }}</span>{% endif %}</td>
+              <td class="pequeno">
+                {% if e.vigencia_inicio or e.vigencia_fim %}{{ e.vigencia_inicio|data_br or '…' }} a {{ e.vigencia_fim|data_br or '…' }}
+                {% else %}{{ e.data_empenho|data_br or '—' }}{% endif %}
+                {% if e.vigencia == 'vencida' %}<br><span class="etiqueta vermelho">vigência vencida</span>
+                {% elif e.vigencia == 'futura' %}<br><span class="etiqueta cinza">ainda não vigente</span>{% endif %}
+                {% if e.numero_pregao or e.numero_registro %}<br><span class="suave">{% if e.numero_pregao %}Pregão {{ e.numero_pregao }}{% endif %}{% if e.numero_registro %} · Reg. {{ e.numero_registro }}{% endif %}</span>{% endif %}
+              </td>
+              <td class="num">
+                <div class="barra-trilho" style="min-width:100px">
+                  <div class="barra-preenchida {{ 'vermelho' if e.no_limite else ('amarelo' if e.percentual_usado >= 60 else 'verde') }}"
+                       style="width: {{ e.percentual_usado }}%"></div>
+                </div>
+                <span class="pequeno">{{ e.saldo }} de {{ e.quantidade_total }} · limite {{ e.limite }}</span>
+              </td>
+              <td class="num">{{ e.valor_saldo|moeda }}</td>
+              <td><span class="etiqueta {{ 'verde' if e.status == 'ativo' else 'cinza' }}">{{ e.status|title }}</span></td>
+              <td><a class="botao pequeno secundario" href="/consignados/empenhos/{{ e.id_empenho }}">Abrir</a></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="vazio">Nenhum empenho encontrado com os filtros atuais.</p>
+  {% endif %}
+</div>
+{% endblock %}

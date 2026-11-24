@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block titulo %}Material não cadastrado · {{ APP_TITLE }}{% endblock %}
+
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <div>
+    <h1>Material não cadastrado no sistema</h1>
+    <p><strong>{{ descricao }}</strong>{% if atendimento.paciente %} · {{ atendimento.paciente }}{% endif %}</p>
+  </div>
+  <div class="acoes">
+    <a class="botao secundario" href="/bipagem/registrar_uso?atendimento={{ atendimento.id_atendimento }}">Voltar a bipar</a>
+  </div>
+</div>
+
+<div class="aviso erro" style="border:3px solid var(--vermelho, #b3261e)">
+  <strong>Exceção das exceções.</strong> Use só quando o material foi usado (ou vai ser usado agora) e
+  <strong>não existe no sistema</strong> — o bip diz “código não encontrado” e não há como selecionar pelo AGHU.
+  <ol style="margin:.5rem 0 0 1.2rem">
+    <li><strong>Cole a etiqueta do material no prontuário do paciente.</strong></li>
+    <li>Copie da etiqueta: descrição, lote, validade e fornecedor.</li>
+    <li>A supervisão autoriza com a própria senha.</li>
+  </ol>
+  O almoxarifado é avisado para regularizar o cadastro e a farmácia dá ciência. Cada caso entra no indicador
+  “Material usado sem cadastro”.
+</div>
+
+{% if erro %}<div class="aviso erro">{{ erro }}</div>{% endif %}
+
+<form method="post" class="cartao" autocomplete="off">
+  <h2>Dados da etiqueta</h2>
+  <div class="grade grade-3">
+    <div class="campo" style="grid-column:span 2"><label class="obrigatorio">Descrição do material</label>
+      <input type="text" name="xProd" required value="{{ dados.xProd or '' }}"></div>
+    <div class="campo"><label class="obrigatorio">Quantidade usada</label>
+      <input type="number" name="quantidade" min="1" max="20" value="{{ dados.quantidade or 1 }}" required></div>
+    <div class="campo"><label class="obrigatorio">Lote</label>
+      <input type="text" name="nLote" required value="{{ dados.nLote or '' }}"></div>
+    <div class="campo"><label class="obrigatorio">Validade</label>
+      <input type="text" name="dVal" required placeholder="DD/MM/AAAA" value="{{ dados.dVal or '' }}"></div>
+    <div class="campo"><label class="obrigatorio">Fornecedor</label>
+      <input type="text" name="fornecedor" required value="{{ dados.fornecedor or '' }}"></div>
+    <div class="campo"><label>Fabricante / marca <span class="opcional">(se tiver)</span></label>
+      <input type="text" name="marca_fabricante" value="{{ dados.marca_fabricante or '' }}"></div>
+    <div class="campo"><label>Código AGHU <span class="opcional">(se souber)</span></label>
+      <input type="text" name="codigo_aghu" value="{{ dados.codigo_aghu or '' }}"></div>
+    <div class="campo"><label>Código de barras / nº de série <span class="opcional">(se tiver)</span></label>
+      <input type="text" name="codigo_barras" value="{{ dados.codigo_barras or '' }}"></div>
+  </div>
+
+  <h2 style="margin-top:1rem">Por que não estava cadastrado?</h2>
+  <div class="grade grade-2">
+    <div class="campo"><label class="obrigatorio">Motivo</label>
+      <select name="motivo" required>
+        <option value="">— escolha —</option>
+        {% for m in motivos %}<option {{ 'selected' if dados.motivo == m }}>{{ m }}</option>{% endfor %}
+      </select></div>
+    <div class="campo"><label>Detalhe <span class="opcional">(obrigatório se “Outro”)</span></label>
+      <input type="text" name="detalhe" value="{{ dados.detalhe or '' }}"></div>
+  </div>
+
+  <label style="display:flex;gap:.6rem;align-items:center;margin:1rem 0;font-weight:600">
+    <input type="checkbox" name="etiqueta_no_prontuario" value="1" required style="width:1.4rem;height:1.4rem"
+           {{ 'checked' if dados.etiqueta_no_prontuario }}>
+    A etiqueta do material foi colada no prontuário do paciente.
+  </label>
+
+  <h2>Autorização da supervisão</h2>
+  <div class="grade grade-2">
+    <div class="campo"><label class="obrigatorio">Usuário da supervisora</label>
+      <input type="text" name="usuario_supervisao" required value="{{ dados.usuario_supervisao or '' }}"></div>
+    <div class="campo"><label class="obrigatorio">Senha</label>
+      <input type="password" name="senha_supervisao" required autocomplete="new-password"></div>
+  </div>
+  <button class="botao perigo" style="margin-top:.6rem">Registrar material não cadastrado no prontuário</button>
+</form>
+
+{% if registrados %}
+<div class="cartao">
+  <h2>Já registrados neste atendimento</h2>
+  <div class="tabela-rolagem"><table>
+    <thead><tr><th>Material</th><th>Lote</th><th>Validade</th><th>Registrado</th><th>Situação</th></tr></thead>
+    <tbody>
+      {% for r in registrados %}
+      <tr><td>{{ r.xProd }}</td><td class="mono">{{ r.nLote }}</td><td class="pequeno">{{ r.dVal|data_br }}</td>
+        <td class="pequeno">{{ r.registrado_em|data_hora_br }} · {{ r.registrado_por }} (autorizado por {{ r.autorizado_por }})</td>
+        <td>{% if r.situacao == 'pendente' %}<span class="etiqueta amarelo">aguardando o almoxarifado</span>
+            {% else %}<span class="etiqueta verde">regularizado</span>{% endif %}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table></div>
+</div>
+{% endif %}
+{% endblock %}

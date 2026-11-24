@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block titulo %}Procedimento {{ atendimento.prontuario }} · {{ APP_TITLE }}{% endblock %}
+
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <div>
+    <h1>Procedimento — prontuário {{ atendimento.prontuario }}</h1>
+    <p><strong>{{ descricao }}</strong>{% if atendimento.paciente %} · {{ atendimento.paciente }}{% endif %}</p>
+    {% if finalizado %}<p class="pequeno">Materiais utilizados finalizados pela sala em
+      {{ atendimento.uso_finalizado_em|data_hora_br }} por {{ atendimento.uso_finalizado_por }}.</p>{% endif %}
+  </div>
+  <div class="acoes"><a class="botao secundario" href="/farmacia/procedimentos-a-concluir">Voltar</a></div>
+</div>
+
+{% if atendimento.status == 'encerrado' %}
+  <div class="aviso sucesso">Procedimento encerrado em {{ atendimento.encerrado_em|data_hora_br }} por {{ atendimento.encerrado_por }}.</div>
+{% elif not finalizado %}
+  <div class="aviso info">A sala ainda não finalizou os materiais utilizados deste procedimento.</div>
+{% elif devolucao %}
+  <div class="aviso alerta">A lista de não utilizados está aguardando a sua ciência.
+    <a class="botao pequeno" href="/devolucoes/{{ devolucao.id_devolucao }}">Conferir e dar ciência</a></div>
+{% endif %}
+
+{% if atendimento.status == 'aberto' and finalizado and not devolucao %}
+<div class="cartao" style="border-left:5px solid var(--{{ 'vermelho' if pendencias.total else 'verde' }})">
+  {% if pendencias.total %}
+    <h2>Não voltou para a farmácia ({{ pendencias.total }})</h2>
+    <p class="pequeno suave">A sala foi avisada para conferir. Se ela bipar o uso no paciente, o item sai daqui
+      sozinho. Se o material chegou de volta, marque “Recebi de volta”.</p>
+    <div class="tabela-rolagem"><table>
+      <thead><tr><th>AGHU</th><th>Material</th><th>Lote</th><th>Validade</th><th></th></tr></thead>
+      <tbody>
+        {% for i in pendencias.itens %}
+        <tr><td class="mono pequeno">{{ i.codigo_aghu or '—' }}</td><td>{{ i.descritivo_hospital or i.xProd }}</td>
+          <td class="mono">{{ i.nLote or '—' }}</td><td class="pequeno">{{ i.dVal|data_br or '—' }}</td>
+          <td><form method="post" action="/farmacia/procedimento/{{ atendimento.id_atendimento }}/receber" style="margin:0">
+            <input type="hidden" name="id_unidade" value="{{ i.id_unidade }}">
+            <button class="botao pequeno">Recebi de volta</button></form></td></tr>
+        {% endfor %}
+        {% for c in pendencias.caixas %}
+        <tr><td>—</td><td><strong>Caixa <span class="mono">{{ c.id_caixa }}</span></strong> {{ c.nome }} — {{ c.qtd }} item(ns)</td>
+          <td>—</td><td>—</td>
+          <td><form method="post" action="/farmacia/procedimento/{{ atendimento.id_atendimento }}/receber" style="margin:0">
+            <input type="hidden" name="id_caixa" value="{{ c.id_caixa }}">
+            <button class="botao pequeno">Recebi a caixa</button></form></td></tr>
+        {% endfor %}
+      </tbody>
+    </table></div>
+  {% else %}
+    <h2>Tudo certo</h2>
+    <p class="pequeno suave">Nada pendente: tudo foi usado no paciente ou voltou para a farmácia.</p>
+  {% endif %}
+  <form method="post" action="/farmacia/procedimento/{{ atendimento.id_atendimento }}/concluir" style="margin-top:1rem"
+        data-confirmar="Concluir este procedimento? Depois disso, só a supervisão reabre.">
+    <button class="botao" {% if pendencias.total %}disabled title="Resolva o que não voltou primeiro"{% endif %}>Concluir procedimento</button>
+  </form>
+</div>
+{% endif %}
+
+<div class="cartao">
+  <h2>Usados no paciente ({{ usados|length }})</h2>
+  {% if usados %}
+  <div class="tabela-rolagem"><table>
+    <thead><tr><th>AGHU</th><th>Material</th><th>Lote</th><th>Validade</th></tr></thead>
+    <tbody>
+      {% for m in usados %}
+      <tr><td class="mono pequeno">{{ m.codigo_aghu or '—' }}</td><td>{{ m.descritivo_hospital or m.xProd }}</td>
+        <td class="mono">{{ m.nLote or '—' }}</td><td class="pequeno">{{ m.dVal|data_br or '—' }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}<p class="vazio">Nenhum material usado.</p>{% endif %}
+</div>
+{% endblock %}

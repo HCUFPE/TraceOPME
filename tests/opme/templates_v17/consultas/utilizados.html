@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block titulo %}Itens utilizados · {{ APP_TITLE }}{% endblock %}
+
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <div>
+    <h1>Itens utilizados</h1>
+    <p>Base para faturamento, prestação de contas e reposição.</p>
+  </div>
+  <div class="acoes"><a class="botao secundario" href="/consultas">Voltar</a></div>
+</div>
+
+<form method="get" class="cartao">
+  <div class="filtros">
+    <div class="campo"><label>De</label><input type="date" name="inicio" value="{{ inicio }}"></div>
+    <div class="campo"><label>Até</label><input type="date" name="fim" value="{{ fim }}"></div>
+    <div class="campo"><label>Prontuário</label><input type="text" name="prontuario" value="{{ filtros.prontuario }}"></div>
+    <div class="campo">
+      <label>Sala</label>
+      <select name="sala">
+        <option value="">todas</option>
+        {% for s in salas %}<option value="{{ s }}" {{ 'selected' if filtros.sala == s }}>{{ s }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="campo">
+      <label>Especialidade</label>
+      <select name="especialidade">
+        <option value="">todas</option>
+        {% for e in especialidades %}
+          <option value="{{ e }}" {{ 'selected' if filtros.especialidade == e }}>{{ e|especialidade }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="campo"><label>Produto</label><input type="text" name="produto" value="{{ filtros.produto }}"></div>
+    <button class="botao">Filtrar</button>
+  </div>
+</form>
+
+<div class="cartao">
+  <div class="entre">
+    <h2>{{ linhas|length }} item(ns) utilizado(s)</h2>
+    {% if linhas %}
+      <a class="botao secundario pequeno"
+         href="/consultas/utilizados?inicio={{ inicio }}&fim={{ fim }}&prontuario={{ filtros.prontuario }}&sala={{ filtros.sala }}&especialidade={{ filtros.especialidade }}&produto={{ filtros.produto }}&exportar=1">
+        Exportar CSV
+      </a>
+    {% endif %}
+  </div>
+
+  {% if linhas %}
+    <div class="tabela-rolagem">
+      <table>
+        <thead>
+          <tr><th>Data</th><th>Prontuário</th><th>Sala</th><th>Especialidade</th>
+              <th>Produto</th><th>Lote</th><th>Validade</th><th>Fornecedor</th>
+              <th>Classificação</th><th class="num">Valor</th></tr>
+        </thead>
+        <tbody>
+          {% for l in linhas %}
+            <tr>
+              <td>{{ l.data_procedimento|data_br }}</td>
+              <td>{{ l.prontuario }}</td>
+              <td>{{ l.sala }}</td>
+              <td>{{ l.especialidade|especialidade }}</td>
+              <td><a href="/consultas/item/{{ l.id_unidade }}">{{ l.xProd }}</a></td>
+              <td class="mono">{{ l.nLote or '—' }}</td>
+              <td>{{ l.dVal|data_br or '—' }}</td>
+              <td class="pequeno">{{ l.fornecedor or '—' }}</td>
+              <td class="pequeno">{{ l.tipo_entrada|replace('_', ' ')|title }}</td>
+              <td class="num">{{ l.vUnCom|moeda }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="vazio">Nenhum item utilizado com esses filtros.</p>
+  {% endif %}
+</div>
+{% endblock %}

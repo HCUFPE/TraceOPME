@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block titulo %}Solicitações de OPME · {{ APP_TITLE }}{% endblock %}
+
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <div>
+    <h1>Solicitações de OPME em aberto</h1>
+    <p>Pedidos da sala de procedimento que a farmácia ainda precisa atender, de qualquer data.
+       O pedido sai daqui quando tudo for dispensado, quando a dispensa for finalizada ou se o procedimento for cancelado.</p>
+  </div>
+  <div class="acoes"><a class="botao secundario" href="/farmacia">Voltar</a></div>
+</div>
+
+{% include "sala_procedimento/_unidade.html" %}
+<p class="pequeno" style="margin:.2rem 0 .8rem">
+  {% if filtrando %}Mostrando só os pedidos de <strong>{{ rotulo_unidade(unidade_atual) }}</strong> ·
+    <a href="/farmacia/solicitacoes?todas=1">ver de todas as unidades</a>
+  {% elif unidade_atual %}Mostrando todas as unidades · <a href="/farmacia/solicitacoes">só {{ rotulo_unidade(unidade_atual) }}</a>
+  {% else %}Mostrando todas as unidades.{% endif %}
+</p>
+<div class="cartao">
+  {% if pedidos %}
+  <div class="tabela-rolagem">
+    <table>
+      <thead><tr><th>Data</th><th>Local</th><th>Prontuário</th><th>Paciente</th><th>Especialidade</th>
+        <th>Pedido</th><th>Andamento</th><th></th></tr></thead>
+      <tbody>
+        {% for p in pedidos %}
+        <tr>
+          <td class="pequeno">{{ p.data_procedimento|data_br }}{% if p.hora_inicio %}<br>{{ p.hora_inicio }}{% endif %}</td>
+          <td class="pequeno">{{ rotulo_unidade(p.unidade) }} — sala {{ p.sala }}</td>
+          <td><strong>{{ p.prontuario }}</strong></td>
+          <td class="pequeno">{{ p.paciente or '—' }}</td>
+          <td class="pequeno">{{ p.especialidade|especialidade }}</td>
+          <td class="pequeno">{{ p.criado_por }}<br><span class="suave">{{ p.atualizado_em|data_hora_br }}</span></td>
+          <td><span class="etiqueta {{ 'amarelo' if p.atendidas else 'vermelho' }}">{{ p.atendidas }}/{{ p.linhas }} atendido(s)</span></td>
+          <td><a class="botao pequeno" href="/bipagem/dispensar_sala?atendimento={{ p.id_atendimento }}">Atender</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="vazio">Nenhuma solicitação em aberto.</p>
+  {% endif %}
+</div>
+{% endblock %}

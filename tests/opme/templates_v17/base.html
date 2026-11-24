@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block titulo %}{{ APP_TITLE }}{% endblock %}</title>
+  <link rel="icon" type="image/svg+xml" href="/static/logo.svg">
+  <link rel="stylesheet" href="/static/app.css?v={{ VERSAO_ESTATICA }}">
+</head>
+<body>
+
+{% if usuario %}
+<header class="topo">
+  <a class="marca" href="/">
+    <img src="/static/logo.svg" alt="" width="38" height="38">
+    <span>Trace<span class="marca-destaque">OPME</span>
+      <small>{{ ORGANIZACAO or APP_SUBTITLE }}</small></span>
+  </a>
+
+  <nav>
+    <a href="/" class="{{ 'ativo' if request.url.path == '/' }}">Painel</a>
+    {% if 'procedimentos' in modulos %}
+      <a href="/procedimentos" class="{{ 'ativo' if request.url.path.startswith('/procedimentos') }}">Procedimentos</a>
+    {% endif %}
+    {% if 'almoxarifado' in modulos %}
+      <a href="/almoxarifado" class="{{ 'ativo' if request.url.path.startswith('/almoxarifado') }}">Almoxarifado</a>
+    {% endif %}
+    {% if 'farmacia' in modulos %}
+      <a href="/farmacia" class="{{ 'ativo' if request.url.path.startswith('/farmacia') }}">Farmácia</a>
+    {% endif %}
+    {% if 'sala-procedimento' in modulos %}
+      <a href="/sala-procedimento" class="{{ 'ativo' if request.url.path.startswith('/sala-procedimento') }}">Sala de procedimento</a>
+    {% endif %}
+    {% if 'consignados' in modulos %}
+      <a href="/consignados" class="{{ 'ativo' if request.url.path.startswith('/consignados') }}">Consignados</a>
+    {% endif %}
+    {% if 'inventario' in modulos %}
+      <a href="/inventario" class="{{ 'ativo' if request.url.path.startswith('/inventario') }}">Inventário</a>
+    {% endif %}
+    {% if 'consultas' in modulos %}
+      <a href="/consultas" class="{{ 'ativo' if request.url.path.startswith('/consultas') }}">Consultas</a>
+    {% endif %}
+    {% if 'indicadores' in modulos %}
+      <a href="/indicadores" class="{{ 'ativo' if request.url.path.startswith('/indicadores') }}">Indicadores</a>
+    {% endif %}
+    {% if 'admin' in modulos %}
+      <a href="/admin" class="{{ 'ativo' if request.url.path.startswith('/admin') }}">Administração</a>
+    {% endif %}
+  </nav>
+
+  <div class="usuario">
+    <a href="/perfil">{{ usuario.nome }}</a><br>
+    {{ rotulo_papel(usuario.papel) }} · <a href="/sair">sair</a>
+  </div>
+</header>
+{% endif %}
+
+<main>
+  {% if pedidos_opme_abertos %}
+    <a class="alerta-pedido-opme" href="/farmacia/solicitacoes" data-sem-foco="1">
+      <span class="alerta-pedido-ponto"></span>
+      <strong>{{ pedidos_opme_abertos }} solicitação(ões) de OPME em aberto{% if pedidos_opme_unidade %} — {{ pedidos_opme_unidade }}{% endif %}</strong>
+      — a sala pediu material e a farmácia precisa atender. <u>Ver pedidos</u>
+      {% if not pedidos_opme_unidade %}<span class="pequeno">(todas as unidades: escolha a unidade da farmácia para ver só as suas)</span>{% endif %}
+    </a>
+  {% endif %}
+  {% if aviso and aviso.tipo == 'janela' %}
+    <div class="alerta-entrega alerta-janela" id="aviso-janela" role="alertdialog" aria-modal="true"
+         aria-labelledby="aviso-janela-titulo">
+      <div class="alerta-entrega-janela">
+        <div class="alerta-entrega-icone">!</div>
+        <h2 id="aviso-janela-titulo">Não é possível concluir</h2>
+        <p style="font-size:1.1rem">{{ aviso.texto }}</p>
+        <div style="display:flex;gap:.6rem;justify-content:center;flex-wrap:wrap;margin-top:1rem">
+          {% for rotulo, link in aviso.acoes or [] %}
+            <a class="botao" href="{{ link }}" data-sem-foco="1">{{ rotulo }}</a>
+          {% endfor %}
+          <button type="button" class="botao secundario" data-sem-foco="1"
+                  onclick="document.getElementById('aviso-janela').hidden = true">Entendi</button>
+        </div>
+      </div>
+    </div>
+  {% elif aviso %}
+    <div class="aviso {{ aviso.tipo }}">{{ aviso.texto }}</div>
+  {% endif %}
+  {% if sucesso is defined and sucesso %}<div class="aviso sucesso">{{ sucesso }}</div>{% endif %}
+  {% if erro is defined and erro %}<div class="aviso erro">{{ erro }}</div>{% endif %}
+  {% if sem_permissao is defined and sem_permissao %}
+    <div class="aviso alerta">Seu perfil não tem acesso a essa área. Fale com o administrador.</div>
+  {% endif %}
+
+  {% block conteudo %}{% endblock %}
+</main>
+
+<footer class="rodape">
+  {{ APP_TITLE }} · versão 17 · desenvolvido por Camila Corrêa de Melo
+</footer>
+
+<script src="/static/app.js?v={{ VERSAO_ESTATICA }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

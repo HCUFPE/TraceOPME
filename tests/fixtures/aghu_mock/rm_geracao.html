@@ -1,0 +1,31 @@
+<html><head><meta charset="utf-8"><title>Geração/Alteração de Requisição de Material (simulado)</title></head><body style="font-family:sans-serif">
+<form id="formRequisicaoMaterial">
+ CC Requisição <input id="sbCCReq:sbCCReq:suggestion_input" value="31011" disabled><input type="hidden" id="sbCCReq:sbCCReq:suggestion_hinput" value="FccCentroCustos31011">
+ CC Aplicação <input id="sbCCAplicacao:sbCCAplicacao:suggestion_input" value="HEMODINAMICA" disabled><input type="hidden" id="sbCCAplicacao:sbCCAplicacao:suggestion_hinput" value="FccCentroCustos1">
+ Almoxarifado <input id="sbAlmoxarifado:sbAlmoxarifado:suggestion_input" value="NID IMAGEM - FARMÁCIA" disabled><input type="hidden" id="sbAlmoxarifado:sbAlmoxarifado:suggestion_hinput" value="Alm1">
+ Prontuário <input id="prontuarioEdicao:prontuarioEdicao:inputId" value="22375521" disabled>
+ Nome <input id="pacNomeEdicao:pacNomeEdicao:inputId" value="ANA BEATRIZ DA SILVA" disabled>
+</form>
+<form id="formItens">
+ Material <input id="sbMaterial:sbMaterial:suggestion_input"><input type="hidden" id="sbMaterial:sbMaterial:suggestion_hinput">
+ <div id="sbMaterial:sbMaterial:suggestion_panel" style="display:none;border:1px solid #999"><table><tbody></tbody></table></div>
+ Quantidade <input id="qtd:qtd:inputId_input" size="5">
+ <button type="button" id="btGravarItem:button">Gravar</button>
+</form>
+<form id="formRequisicaoMaterialItens"><table border="1"><thead><tr><th>Ação</th><th>Material</th><th>Grupo</th><th>Quantidade</th></tr></thead>
+<tbody id="j_idt502:resultList_data"></tbody></table></form>
+<script>
+const CAT={"401557":"CATETER CENTRAL, TOTALMENTE IMPLANTAVEL - UND - 122039","24870":"INTRODUTOR FEMURAL 5F X 11CM","4015570":"OUTRO"};
+const itens=[]; window.LOG=[];
+function q(id){return document.getElementById(id);}
+function render(){ q("j_idt502:resultList_data").innerHTML=itens.map((l,i)=>`<tr data-ri="${i}"><td>x</td><td>${l[0]} - ${CAT[l[0]]}</td><td>MATERIAL HOSPITALAR</td><td>${l[1]}</td></tr>`).join(""); }
+const inp=q("sbMaterial:sbMaterial:suggestion_input"), pan=q("sbMaterial:sbMaterial:suggestion_panel");
+inp.addEventListener("input",()=>setTimeout(()=>{
+  const t=inp.value.trim(); const ops=Object.entries(CAT).filter(([c])=>c.startsWith(t));
+  pan.querySelector("tbody").innerHTML=ops.map(([c,d])=>`<tr class="ui-autocomplete-item" data-item-label="${c}"><td>${c}</td><td>${d}</td></tr>`).join("");
+  pan.style.display=ops.length?"block":"none";
+  pan.querySelectorAll("tr").forEach(tr=>tr.onclick=()=>{inp.value=tr.dataset.itemLabel;q("sbMaterial:sbMaterial:suggestion_hinput").value=tr.dataset.itemLabel;pan.style.display="none";});
+},150));
+q("btGravarItem:button").onclick=()=>{ const m=q("sbMaterial:sbMaterial:suggestion_hinput").value, qt=q("qtd:qtd:inputId_input").value;
+  if(!m||!qt) return; itens.push([m,qt]); window.LOG.push(["item",m,qt]); render(); inp.value=""; q("sbMaterial:sbMaterial:suggestion_hinput").value=""; q("qtd:qtd:inputId_input").value=""; };
+</script></body></html>

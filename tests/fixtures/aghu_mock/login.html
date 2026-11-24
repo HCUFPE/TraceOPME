@@ -1,0 +1,8 @@
+<html><head><meta charset="utf-8"><title>AGHU (simulado)</title></head>
+<body style="font-family:sans-serif;padding:40px">
+<h1>AGHU — tela simulada para teste</h1>
+<form id="f" onsubmit="event.preventDefault(); if(document.getElementById('u').value && document.getElementById('p').value){ location=(new URLSearchParams(location.search).get('ir')||'casca.html'); } else { document.getElementById('m').textContent='Informe usuário e senha'; }">
+  <p>Usuário <input id="u" autofocus></p>
+  <p>Senha <input id="p" type="password"></p>
+  <button>Entrar</button> <span id="m"></span>
+</form></body></html>

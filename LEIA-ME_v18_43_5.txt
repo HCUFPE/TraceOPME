@@ -1,0 +1,33 @@
+TraceOPME 18.43.5 — 23/11/2026
+=========================================================
+
+HORA DO PROCEDIMENTO NA CORREÇÃO DO ATENDIMENTO
+
+Em "Corrigir dados do atendimento", na ficha do prontuário, agora há o
+campo Hora do procedimento, junto de Prontuário, Paciente, Local e
+Observação. Antes a hora só podia ser definida na abertura.
+
+  - hora inválida é recusada (25:00, 14h30, 1430...);
+  - dá para apagar a hora, deixando o campo em branco;
+  - a mudança fica na auditoria, com a hora anterior:
+      "Prontuário 11443090 · Hemodinâmica sala 01 · hora 14:30 (era 08:00)"
+
+A hora define o turno na agenda e aparece na identificação do
+atendimento, então ela errada atrapalha quem procura o procedimento.
+
+VEM DAS ANTERIORES
+  18.43.4 — "JÁ REGISTRADO" com material disponível (maiúscula/minúscula
+            no código de barras).
+  18.43.3 — bateria de 12 formatos de etiqueta e três correções.
+  18.43.2 — o texto bipado inteiro é o código.
+  18.43.1 — "10706;26" e cadastros com a etiqueta inteira no código.
+  18.43   — painel da solicitação e desfazer cancelamento.
+
+ATUALIZAÇÃO NO SERVIDOR
+   1. Pare o rodar.bat.
+   2. Substitua os arquivos preservando data, logs, .venv e .env.
+   3. Suba o rodar.bat de novo. Não precisa instalar.bat.
+
+CONFERÊNCIA DESTA VERSÃO
+   421 testes automatizados + 499 verificações do módulo anterior.
+   Frontend compilado. Auditoria do framework: 10/11.

@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block titulo %}Etiqueta {{ caixa.id_caixa }} · {{ APP_TITLE }}{% endblock %}
+
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <div>
+    <h1>Etiqueta da caixa</h1>
+    <p>Imprima (Ctrl+P) e cole na tampa. É este código que a sala bipa na devolução.</p>
+  </div>
+  <div class="acoes"><a class="botao secundario" href="/farmacia/caixas-consignado/{{ caixa.id_caixa }}">Voltar</a></div>
+</div>
+<div class="cartao" style="max-width:360px;text-align:center">
+  {% if qr_disponivel %}
+    <img src="/farmacia/caixas-consignado/{{ caixa.id_caixa }}/qr.png" alt="QR da caixa {{ caixa.id_caixa }}" style="width:240px;height:auto">
+  {% else %}
+    <p class="aviso erro">A biblioteca de QR Code não está instalada. Rode o iniciar.bat de novo.</p>
+  {% endif %}
+  <p class="mono" style="font-size:1.4rem;font-weight:700;margin:.4rem 0">{{ caixa.id_caixa }}</p>
+  <p style="margin:0">{{ caixa.nome }}</p>
+  <p class="suave pequeno" style="margin:.2rem 0 0">Consignado · {{ caixa.fornecedor or '' }}</p>
+</div>
+{% endblock %}

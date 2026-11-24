@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block titulo %}Inventário · {{ APP_TITLE }}{% endblock %}
+
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <div>
+    <h1>Inventário</h1>
+    <p>Contagem periódica do estoque: bipe material atrás de material e, no fim,
+       o sistema mostra o que não fecha.</p>
+  </div>
+</div>
+
+<div class="cartao">
+  <h2>Começar uma contagem</h2>
+  <p class="suave pequeno">
+    Cada contagem cobre um estoque só: o <strong>almoxarifado</strong>, a <strong>Farmácia do Bloco
+    Cirúrgico</strong> ou a <strong>Farmácia da Hemodinâmica</strong>. Escolha o local onde você está.
+    No almoxarifado, material em divergência também entra, porque continua fisicamente na prateleira.
+  </p>
+  <form method="post" action="/inventario/novo">
+    <div class="filtros">
+      <div class="campo">
+        <label class="obrigatorio">Local a contar</label>
+        <select name="local">
+          <option value="">— escolha o local —</option>
+          {% for chave, nome in locais.items() %}
+            <option value="{{ chave }}" {{ 'selected' if local_sugerido == chave }}>{{ nome }} — {{ esperado.get(chave, 0) }} unidade(s) no sistema</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="campo">
+        <label>Observação <span class="opcional">(opcional)</span></label>
+        <input type="text" name="observacao" placeholder="ex.: contagem mensal de setembro">
+      </div>
+      <button class="botao">Abrir contagem</button>
+    </div>
+  </form>
+</div>
+
+<div class="cartao" style="margin-top:1.5rem">
+  <h2>Contagens anteriores</h2>
+  {% if contagens %}
+    <div class="tabela-rolagem">
+      <table>
+        <thead>
+          <tr><th>Contagem</th><th>Local</th><th>Situação</th><th class="num">Leituras</th>
+              <th>Aberta por</th><th>Encerrada</th><th></th></tr>
+        </thead>
+        <tbody>
+          {% for c in contagens %}
+            <tr>
+              <td class="mono">{{ c.id_inventario }}
+                {% if c.observacao %}
+                  <div class="pequeno suave">{{ c.observacao }}</div>
+                {% endif %}
+              </td>
+              <td>{{ c.local_rotulo }}</td>
+              <td>
+                {% if c.status == 'aberto' %}
+                  <span class="etiqueta amarelo">em contagem</span>
+                {% else %}
+                  <span class="etiqueta cinza">encerrada</span>
+                {% endif %}
+              </td>
+              <td class="num">{{ c.leituras }}</td>
+              <td class="pequeno">{{ c.criado_por }}
+                <div class="suave">{{ c.criado_em|data_hora_br }}</div>
+              </td>
+              <td class="pequeno suave">
+                {{ c.encerrado_em|data_hora_br if c.encerrado_em else '—' }}
+              </td>
+              <td>
+                {% if c.status == 'aberto' %}
+                  <a class="botao pequeno" href="/inventario/{{ c.id_inventario }}">Continuar</a>
+                {% else %}
+                  <a class="botao secundario pequeno"
+                     href="/inventario/{{ c.id_inventario }}/relatorio">Ver relatório</a>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="vazio">Nenhuma contagem registrada ainda.</p>
+  {% endif %}
+</div>
+{% endblock %}

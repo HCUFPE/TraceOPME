@@ -1,0 +1,114 @@
+{# Componentes reutilizáveis dos indicadores. Sem biblioteca de gráficos:
+   as barras são divs com largura percentual e o gráfico de linha é SVG puro. #}
+
+{% macro cartao(item) %}
+  <div class="kpi {{ item.situacao }}">
+    <div class="kpi-topo">
+      <span class="kpi-nome">{{ item.indicador.nome }}</span>
+      <span class="kpi-ajuda" tabindex="0"
+            title="{{ item.indicador.pergunta }}&#10;&#10;Cálculo: {{ item.indicador.formula }}&#10;&#10;Por quê: {{ item.indicador.por_que }}">?</span>
+    </div>
+    <div class="kpi-valor">{{ item.texto }}</div>
+    {% if item.meta is not none %}
+      <div class="kpi-meta">
+        meta: {{ 'no mínimo' if item.indicador.direcao == 'maior' else 'no máximo' }}
+        {{ item.meta_texto }}
+        {% if item.personalizada %}<span class="etiqueta cinza">ajustada</span>{% endif %}
+      </div>
+    {% else %}
+      <div class="kpi-meta">acompanhamento — sem meta definida</div>
+    {% endif %}
+    <div class="kpi-pergunta">{{ item.indicador.pergunta }}</div>
+  </div>
+{% endmacro %}
+
+
+{% macro barras(linhas, campo_rotulo, campo_valor, formatador=none, cor='azul') %}
+  {% set maximo = linhas | map(attribute=campo_valor) | map('float') | max if linhas else 0 %}
+  <div class="barras">
+    {% for linha in linhas %}
+      {% set valor = linha[campo_valor] | float %}
+      <div class="barra-linha">
+        <div class="barra-rotulo" title="{{ linha[campo_rotulo] }}">{{ linha[campo_rotulo] }}</div>
+        <div class="barra-trilho">
+          <div class="barra-preenchida {{ cor }}"
+               style="width: {{ (100 * valor / maximo) if maximo else 0 }}%"></div>
+        </div>
+        <div class="barra-valor">
+          {% if formatador == 'moeda' %}{{ valor | moeda }}
+          {% elif formatador == 'percentual' %}{{ '%.1f' | format(valor) | replace('.', ',') }}%
+          {% else %}{{ valor | round | int }}{% endif %}
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% endmacro %}
+
+
+{% macro linha_tempo(dados, campo_valor, titulo, formatador='numero') %}
+  {% if dados | length > 1 %}
+    {% set valores = dados | map(attribute=campo_valor) | map('float') | list %}
+    {% set maximo = valores | max %}
+    {% set largura = 720 %}
+    {% set altura = 180 %}
+    {% set passo = largura / (dados | length - 1) %}
+    <svg viewBox="0 0 {{ largura }} {{ altura + 34 }}" class="grafico-linha" role="img"
+         aria-label="{{ titulo }}">
+      {% for n in range(5) %}
+        <line x1="0" y1="{{ altura * n / 4 }}" x2="{{ largura }}" y2="{{ altura * n / 4 }}"
+              stroke="#e3e7ec" stroke-width="1"/>
+      {% endfor %}
+      <polyline fill="none" stroke="#12508c" stroke-width="2.5" stroke-linejoin="round"
+        points="{% for d in dados %}{{ loop.index0 * passo }},{{ altura - (altura * (d[campo_valor] | float) / maximo if maximo else 0) }} {% endfor %}"/>
+      {% for d in dados %}
+        {% set x = loop.index0 * passo %}
+        {% set y = altura - (altura * (d[campo_valor] | float) / maximo if maximo else 0) %}
+        <circle cx="{{ x }}" cy="{{ y }}" r="4" fill="#12508c"/>
+        <text x="{{ x }}" y="{{ altura + 16 }}" font-size="11" fill="#5c6470"
+              text-anchor="{{ 'start' if loop.first else ('end' if loop.last else 'middle') }}">
+          {{ d.mes[5:] }}/{{ d.mes[2:4] }}
+        </text>
+        <text x="{{ x }}" y="{{ altura + 30 }}" font-size="10" fill="#1c2430"
+              text-anchor="{{ 'start' if loop.first else ('end' if loop.last else 'middle') }}">
+          {% if formatador == 'moeda' %}{{ (d[campo_valor] | float / 1000) | round | int }} mil
+          {% else %}{{ d[campo_valor] | round | int }}{% endif %}
+        </text>
+      {% endfor %}
+    </svg>
+  {% else %}
+    <p class="vazio">Dados insuficientes para montar a série histórica.</p>
+  {% endif %}
+{% endmacro %}
+
+
+{% macro filtro_periodo(base, inicio, fim) %}
+  <form method="get" action="{{ base }}" class="cartao">
+    <div class="filtros">
+      <div class="campo"><label>De</label><input type="date" name="inicio" value="{{ inicio }}"></div>
+      <div class="campo"><label>Até</label><input type="date" name="fim" value="{{ fim }}"></div>
+      <button class="botao">Aplicar</button>
+      <a class="botao secundario" href="{{ base }}">Últimos 30 dias</a>
+      <a class="botao secundario" href="/indicadores/exportar?inicio={{ inicio }}&fim={{ fim }}">Exportar CSV</a>
+      <button type="button" class="botao secundario" onclick="window.print()">Imprimir</button>
+    </div>
+  </form>
+{% endmacro %}
+
+
+{% macro abas(atual, inicio, fim) %}
+  <div class="abas-indicadores">
+    <a href="/indicadores?inicio={{ inicio }}&fim={{ fim }}"
+       class="{{ 'ativa' if atual == 'resumo' }}">Resumo</a>
+    <a href="/indicadores/fluxo?inicio={{ inicio }}&fim={{ fim }}"
+       class="{{ 'ativa' if atual == 'fluxo' }}">Fluxo e gargalos</a>
+    <a href="/indicadores/desperdicio?inicio={{ inicio }}&fim={{ fim }}"
+       class="{{ 'ativa' if atual == 'desperdicio' }}">Desperdício e validade</a>
+    <a href="/indicadores/financeiro?inicio={{ inicio }}&fim={{ fim }}"
+       class="{{ 'ativa' if atual == 'financeiro' }}">Financeiro e consumo</a>
+    <a href="/indicadores/qualidade?inicio={{ inicio }}&fim={{ fim }}"
+       class="{{ 'ativa' if atual == 'qualidade' }}">Qualidade</a>
+    {% if 'admin' in modulos %}
+      <a href="/indicadores/metas" class="{{ 'ativa' if atual == 'metas' }}">Metas</a>
+    {% endif %}
+  </div>
+{% endmacro %}

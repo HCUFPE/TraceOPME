@@ -1,0 +1,4 @@
+# Só se for usar PostgreSQL no lugar do SQLite (APP_DB_URL).
+-r requirements.txt
+asyncpg>=0.31.0
+psycopg2-binary>=2.9.11

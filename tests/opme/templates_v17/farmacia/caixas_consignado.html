@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block titulo %}Caixas de consignado · {{ APP_TITLE }}{% endblock %}
+
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <div>
+    <h1>Caixas de consignado</h1>
+    <p>Monte a caixa bipando cada item para dentro. Na sala, o uso é bipado por item; na
+       devolução, a sala bipa só a caixa e digita quantos itens voltaram.</p>
+  </div>
+  <div class="acoes"><a class="botao secundario" href="/farmacia">Voltar</a></div>
+</div>
+
+<div class="cartao">
+  <h2>{{ caixas|length }} caixa(s)</h2>
+  {% if caixas %}
+    <div class="tabela-rolagem">
+      <table>
+        <thead><tr><th>Código</th><th>Nome</th><th>Fornecedor</th><th class="num">Itens dentro</th><th>Situação</th><th></th></tr></thead>
+        <tbody>
+          {% for c in caixas %}
+            <tr>
+              <td class="mono"><strong>{{ c.id_caixa }}</strong></td>
+              <td>{{ c.nome }}</td>
+              <td>{{ c.fornecedor or '—' }}</td>
+              <td class="num">{{ c.total }}</td>
+              <td>
+                {% if c.bloqueada %}
+                  <span class="etiqueta vermelho">BLOQUEADA — conferir</span>
+                  <br><span class="suave pequeno">{{ c.bloqueio_motivo }}</span>
+                {% else %}<span class="etiqueta verde">liberada</span>{% endif %}
+              </td>
+              <td><a class="botao pequeno {{ '' if c.bloqueada else 'secundario' }}" href="/farmacia/caixas-consignado/{{ c.id_caixa }}">{{ 'Conferir' if c.bloqueada else 'Abrir' }}</a></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="vazio">Nenhuma caixa ainda. Crie a primeira abaixo.</p>
+  {% endif %}
+</div>
+
+<form method="post" action="/farmacia/caixas-consignado" class="cartao">
+  <h2>Nova caixa de consignado</h2>
+  <div class="grade grade-2">
+    <div class="campo"><label class="obrigatorio">Nome da caixa</label>
+      <input type="text" name="nome" required placeholder="Ex.: Caixa de parafusos — Ortovida"></div>
+    <div class="campo"><label class="obrigatorio">Fornecedor</label>
+      <input type="text" name="fornecedor" required placeholder="Ex.: ORTOVIDA"></div>
+  </div>
+  <p class="suave pequeno">O código da caixa é gerado a partir do fornecedor (ex.: CX-ORTO-01).
+     Depois de criar, imprima a etiqueta e bipe os itens para dentro.</p>
+  <button class="botao">Criar caixa</button>
+</form>
+{% endblock %}

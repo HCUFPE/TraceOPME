@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block titulo %}Vincular a empenho · {{ APP_TITLE }}{% endblock %}
+
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <div>
+    <h1>Vincular uso a empenho</h1>
+    <p>Materiais consignados já utilizados no paciente, aguardando vínculo ao empenho do
+       fornecedor antes de solicitar a nota fiscal.</p>
+  </div>
+  <div class="acoes"><a class="botao secundario" href="/consignados">Voltar</a></div>
+</div>
+
+{% if itens %}
+  {% for item in itens %}
+    <div class="cartao">
+      <div class="entre">
+        <div>
+          <strong>{{ item.xProd }}</strong>
+          <span class="suave pequeno mono">AGHU {{ item.codigo_aghu or '—' }} · lote {{ item.nLote or '—' }}
+            {% if item.numero_serie %} · série {{ item.numero_serie }}{% endif %}</span><br>
+          <span class="pequeno">Fornecedor: {{ item.fornecedor or '—' }} ·
+            Prontuário {{ item.prontuario or '—' }} ({{ item.paciente or 'sem nome' }}) ·
+            Sala {{ item.sala or '—' }}</span>
+        </div>
+        <span class="suave pequeno">{{ item.data_uso|data_hora_br if item.data_uso else '' }}</span>
+      </div>
+
+      {% if item.candidatos %}
+        <form method="post" action="/consignados/vincular" style="margin-top:.75rem">
+          <input type="hidden" name="id_unidade" value="{{ item.id_unidade }}">
+          <div class="grade grade-2">
+            <div class="campo">
+              <label class="obrigatorio">Empenho</label>
+              <select name="id_empenho" required>
+                <option value="">selecione</option>
+                {% for e in item.candidatos %}
+                  <option value="{{ e.id_empenho }}">
+                    {{ e.identificacao or e.numero }} — {{ e.material }} ({{ e.saldo }} de {{ e.quantidade_total }} restantes)
+                  </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="campo">
+              <label>Observação <span class="opcional">(opcional)</span></label>
+              <input type="text" name="observacao">
+            </div>
+          </div>
+          <button class="botao pequeno">Vincular</button>
+        </form>
+      {% else %}
+        <div class="aviso alerta" style="margin-top:.75rem">
+          Nenhum empenho ativo com saldo para {{ item.fornecedor or 'este fornecedor' }}.
+          <a href="/consignados/empenhos/novo">Cadastrar empenho</a> ou solicitar mais saldo
+          à gestão antes de vincular este uso.
+        </div>
+      {% endif %}
+    </div>
+  {% endfor %}
+{% else %}
+  <div class="cartao"><p class="vazio">Nenhum consignado utilizado aguardando vínculo. Tudo em dia.</p></div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,62 @@
+<template>
+  <div>
+    <div class="cabecalho-pagina">
+      <div>
+        <h1>Entrega da caixa ao paciente</h1>
+        <p>Códigos AGHU cuja caixa/embalagem precisa ser recolhida na sala e entregue ao
+           paciente. Quando um desses for bipado no uso, a tela da sala mostra um aviso
+           <strong style="color:var(--vermelho)">vermelho</strong> e quem bipou precisa dar ciência.
+           O atendimento só encerra com todas as ciências dadas.</p>
+      </div>
+      <div class="acoes"><a class="botao secundario" href="/admin">Voltar</a></div>
+    </div>
+
+    <form method="post" action="/admin/entrega-paciente" class="cartao">
+      <h2>Incluir códigos</h2>
+      <div class="grade grade-2">
+        <div class="campo">
+          <label class="obrigatorio">Código(s) AGHU</label>
+          <textarea name="codigos" rows="3" required
+                    placeholder="Um ou vários — separados por espaço, vírgula ou um por linha"></textarea>
+          <div class="dica">Pode colar uma coluna inteira da planilha.</div>
+        </div>
+        <div class="campo">
+          <label>Observação <span class="opcional">(opcional)</span></label>
+          <input type="text" name="observacao" placeholder="Ex.: acompanha cartão de implante">
+        </div>
+      </div>
+      <button class="botao">Incluir</button>
+    </form>
+
+    <div class="cartao">
+      <h2>{{ d.codigos.length }} código(s) na lista</h2>
+      <div v-if="d.codigos.length" class="tabela-rolagem">
+        <table>
+          <thead><tr><th>AGHU</th><th>Descrição (catálogo)</th><th>Observação</th><th>Incluído</th><th></th></tr></thead>
+          <tbody>
+            <tr v-for="c in d.codigos" :key="c.codigo_aghu">
+              <td class="mono"><strong>{{ c.codigo_aghu }}</strong></td>
+              <td>{{ c.descritivo_hospital || '— não está no catálogo —' }}</td>
+              <td class="pequeno">{{ c.observacao || '' }}</td>
+              <td class="pequeno">{{ f.dataHoraBr(c.criado_em) }} · {{ c.criado_por }}</td>
+              <td>
+                <form method="post" :action="`/admin/entrega-paciente/${c.codigo_aghu}/remover`"
+                      :data-confirmar="`Tirar o AGHU ${c.codigo_aghu} da lista?`" style="margin:0">
+                  <button class="botao secundario pequeno">Remover</button>
+                </form>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p v-else class="vazio">Nenhum código ainda.</p>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { useTela } from '../../composables/useTela';
+
+defineProps<{ d: any }>();
+const { f } = useTela();
+</script>

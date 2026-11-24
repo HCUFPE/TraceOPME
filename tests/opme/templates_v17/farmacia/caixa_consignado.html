@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+{% block titulo %}Caixa {{ caixa.id_caixa }} · {{ APP_TITLE }}{% endblock %}
+
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <div>
+    <h1>Caixa <span class="mono">{{ caixa.id_caixa }}</span></h1>
+    <p>{{ caixa.nome }} · fornecedor {{ caixa.fornecedor or '—' }} · <strong>{{ caixa.total }}</strong> item(ns) dentro</p>
+  </div>
+  <div class="acoes">
+    <a class="botao secundario" href="/farmacia/caixas-consignado/{{ caixa.id_caixa }}/etiqueta">Etiqueta da caixa</a>
+    <a class="botao secundario" href="/farmacia/caixas-consignado">Voltar</a>
+  </div>
+</div>
+
+{% if caixa.bloqueada %}
+<form method="post" action="/farmacia/caixas-consignado/{{ caixa.id_caixa }}/conferir"
+      class="cartao alerta-entrega-cartao" data-confirmar="Confirmar a conferência e liberar a caixa?">
+  <h2>Caixa BLOQUEADA — conferência</h2>
+  <p><strong>{{ caixa.bloqueio_motivo }}</strong><br>
+     <span class="pequeno">Bloqueada em {{ caixa.bloqueada_em|data_hora_br }} por {{ caixa.bloqueada_por }}
+     {% if caixa.bloqueio_prontuario %}· prontuário {{ caixa.bloqueio_prontuario }}, sala {{ caixa.bloqueio_sala }}{% endif %}.</span></p>
+  <p class="pequeno">Conte fisicamente. Marque abaixo, na lista de itens, os que <strong>não estão</strong> na caixa
+     (vão para divergência). Se a diferença foi um uso não bipado, a sala ainda pode bipar o uso naquele
+     atendimento antes de você liberar.</p>
+  <div class="campo"><label class="obrigatorio">O que foi conferido</label>
+    <input type="text" name="motivo" required placeholder="Ex.: contagem física com 15 itens; 2 usados sem bip no prontuário 1048231"></div>
+  <div id="faltantes-escolhidos"></div>
+  <button class="botao perigo">Conferida — liberar a caixa</button>
+</form>
+{% endif %}
+
+{% if escolha %}
+<div class="cartao" style="border:3px solid #d18f00;background:var(--amarelo-claro)">
+  <h2 style="color:#8a5a00">ATENÇÃO! Escolha o item</h2>
+  <p>“<span class="mono">{{ codigo_digitado }}</span>” corresponde a {{ escolha|length }} materiais/lotes diferentes.
+     Verifique o lote e a validade na embalagem e clique no certo.</p>
+  <div style="display:grid;gap:.5rem">
+    {% for g in escolha %}
+      <form method="post" action="/farmacia/caixas-consignado/{{ caixa.id_caixa }}/adicionar" style="margin:0">
+        <input type="hidden" name="id_unidade" value="{{ g.id_unidade }}">
+        <button class="escolha-opcao" style="width:100%">
+          <span class="escolha-num">{{ loop.index }}</span>
+          <span class="escolha-texto">
+            <span class="escolha-produto">{{ g.descritivo_hospital or g.xProd }}</span>
+            <span class="escolha-dados">AGHU <b class="mono">{{ g.codigo_aghu or '—' }}</b> · lote <b class="mono">{{ g.nLote or '—' }}</b> · val. {{ g.dVal|data_br or '—' }} · marca {{ g.marca_fabricante or '—' }}</span>
+            <span class="escolha-forn">{{ g.quantidade }} disponível(is) em estoque · {{ g.fornecedor or '' }}</span>
+          </span>
+        </button>
+      </form>
+    {% endfor %}
+  </div>
+  <p style="margin:.6rem 0 0"><a href="/farmacia/caixas-consignado/{{ caixa.id_caixa }}">Cancelar</a></p>
+</div>
+{% endif %}
+
+<form method="post" action="/farmacia/caixas-consignado/{{ caixa.id_caixa }}/adicionar" class="cartao">
+  <h2>Colocar item na caixa</h2>
+  <div class="filtros">
+    <div class="campo" style="flex:1 1 280px"><label>Bipe o código de barras do item (ou digite o código AGHU)</label>
+      <input type="text" name="codigo" {{ '' if escolha else 'autofocus' }} autocomplete="off" placeholder="aguardando leitura…"></div>
+    <button class="botao">Colocar na caixa</button>
+  </div>
+  <p class="suave pequeno" style="margin:.4rem 0 0">Entra só item em estoque, fora de outra caixa e dentro da validade.
+     Um item por leitura: para colocar 5 iguais, bipe 5 vezes.</p>
+</form>
+
+{% if resumo %}
+<div class="cartao">
+  <h2>Conteúdo por material e lote</h2>
+  <p class="suave pequeno" style="margin-top:0">É a lista para conferir de olho — e a contagem que a sala vai informar na devolução.</p>
+  <div class="tabela-rolagem">
+    <table>
+      <thead><tr><th>Material</th><th>AGHU</th><th>Lote</th><th>Validade</th><th class="num">Qtd.</th></tr></thead>
+      <tbody>
+        {% for r in resumo %}
+          <tr><td>{{ r.produto }}</td><td class="mono pequeno">{{ r.codigo_aghu or '—' }}</td>
+              <td class="mono">{{ r.nLote or '—' }}</td><td>{{ r.dVal|data_br or '—' }}</td>
+              <td class="num"><strong>{{ r.quantidade }}</strong></td></tr>
+        {% endfor %}
+        <tr><td colspan="4"><strong>Total na caixa</strong></td><td class="num"><strong>{{ caixa.total }}</strong></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<div class="cartao">
+  <h2>{{ itens|length }} item(ns) na caixa</h2>
+  {% if itens %}
+    <div class="tabela-rolagem">
+      <table>
+        <thead><tr>{% if caixa.bloqueada %}<th>Não está</th>{% endif %}<th>Produto</th><th>AGHU</th><th>Lote</th><th>Validade</th><th>Entrou em</th><th>Retirar</th></tr></thead>
+        <tbody>
+          {% for i in itens %}
+            <tr>
+              {% if caixa.bloqueada %}<td><input type="checkbox" name="faltantes" value="{{ i.id_unidade }}" style="width:auto" data-faltante></td>{% endif %}
+              <td>{{ i.descritivo_hospital or i.xProd }}</td>
+              <td class="mono pequeno">{{ i.codigo_aghu or '—' }}</td>
+              <td class="mono">{{ i.nLote or '—' }}</td>
+              <td>{{ i.dVal|data_br or '—' }}</td>
+              <td class="pequeno">{{ i.entrou_em|data_hora_br }}</td>
+              <td>
+                <form method="post" action="/farmacia/caixas-consignado/{{ caixa.id_caixa }}/retirar/{{ i.id_unidade }}"
+                      style="display:flex;gap:.4rem;margin:0">
+                  <input type="text" name="motivo" placeholder="motivo" required style="width:140px">
+                  <button class="botao secundario pequeno">Retirar</button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="vazio">Caixa vazia. Bipe os itens acima.</p>
+  {% endif %}
+</div>
+
+{% if saidas %}
+<div class="cartao">
+  <h2>Saídas recentes da caixa</h2>
+  <div class="tabela-rolagem">
+    <table>
+      <thead><tr><th>Produto</th><th>Lote</th><th>Saiu em</th><th>Motivo</th><th>Situação</th></tr></thead>
+      <tbody>
+        {% for s in saidas %}
+          <tr><td>{{ s.xProd }}</td><td class="mono">{{ s.nLote or '—' }}</td>
+              <td class="pequeno">{{ s.saiu_em|data_hora_br }}</td><td class="pequeno">{{ s.motivo_saida }}</td>
+              <td><span class="etiqueta {{ cor_status(s.status) }}">{{ rotulo_status(s.status) }}</span></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% if caixa.bloqueada %}
+<script>
+  // Os checkboxes ficam na tabela; na hora de liberar, vão junto com o formulário de conferência.
+  (function () {
+    var form = document.querySelector('form[action$="/conferir"]');
+    var alvo = document.getElementById('faltantes-escolhidos');
+    if (!form) return;
+    form.addEventListener('submit', function () {
+      alvo.innerHTML = '';
+      document.querySelectorAll('[data-faltante]:checked').forEach(function (c) {
+        var h = document.createElement('input'); h.type = 'hidden'; h.name = 'faltantes'; h.value = c.value; alvo.appendChild(h);
+      });
+    });
+  })();
+</script>
+{% endif %}
+{% endblock %}

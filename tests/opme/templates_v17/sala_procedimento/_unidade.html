@@ -1,0 +1,22 @@
+{# v17 — escolha da unidade: Bloco Cirúrgico ou Hemodinâmica. #}
+<div class="cartao seletor-unidade {{ 'sem-escolha' if not unidade_atual }}">
+  <div class="entre" style="flex-wrap:wrap;gap:.8rem">
+    <div>
+      {% if unidade_atual %}
+        <span class="suave pequeno">Você está em</span><br>
+        <strong class="seletor-unidade-atual">{{ unidades[unidade_atual].rotulo }}</strong>
+      {% else %}
+        <strong class="seletor-unidade-atual">{{ pergunta_unidade or 'Onde é o procedimento?' }}</strong><br>
+        <span class="suave pequeno">Escolha a unidade antes de começar.</span>
+      {% endif %}
+    </div>
+    <form method="post" action="{{ acao_unidade or '/sala-procedimento/unidade' }}" class="linha-botoes" style="margin:0">
+      <input type="hidden" name="proximo" value="{{ request.url.path }}">
+      {% for chave, dados in unidades.items() %}
+        <button name="unidade" value="{{ chave }}"
+                class="botao {{ '' if chave == unidade_atual else 'secundario' }} botao-unidade">
+          {{ dados.rotulo }}</button>
+      {% endfor %}
+    </form>
+  </div>
+</div>

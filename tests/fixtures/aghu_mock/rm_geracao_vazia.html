@@ -1,0 +1,55 @@
+<html><head><meta charset="utf-8"><title>Geração de RM em branco (simulado v18.10.2)</title></head><body style="font-family:sans-serif">
+<div id="msgs"></div>
+<form id="formRequisicaoMaterial">
+ <span id="panelCampos">
+ CC Req <span id="sbCCReq:sbCCReq:suggestion"><input id="sbCCReq:sbCCReq:suggestion_input"><input type="hidden" id="sbCCReq:sbCCReq:suggestion_hinput"></span>
+ <a id="sbCCReq:sbCCReq:sgClear" href="#" onclick="limpa('sbCCReq');return false">x</a>
+ <div id="sbCCReq:sbCCReq:suggestion_panel" style="display:none"><table><tbody></tbody></table></div><br>
+ CC Aplic <input id="sbCCAplicacao:sbCCAplicacao:suggestion_input"><input type="hidden" id="sbCCAplicacao:sbCCAplicacao:suggestion_hinput">
+ <a id="sbCCAplicacao:sbCCAplicacao:sgClear" href="#" onclick="limpa('sbCCAplicacao');return false">x</a>
+ <div id="sbCCAplicacao:sbCCAplicacao:suggestion_panel" style="display:none"><table><tbody></tbody></table></div><br>
+ Almox <input id="sbAlmoxarifado:sbAlmoxarifado:suggestion_input"><input type="hidden" id="sbAlmoxarifado:sbAlmoxarifado:suggestion_hinput">
+ <a id="sbAlmoxarifado:sbAlmoxarifado:sgClear" href="#" onclick="limpa('sbAlmoxarifado');return false">x</a>
+ <div id="sbAlmoxarifado:sbAlmoxarifado:suggestion_panel" style="display:none"><table><tbody></tbody></table></div><br>
+ </span>
+ <div id="selecionaPaciente">Prontuário <input id="prontuarioEdicao:prontuarioEdicao:inputId">
+   <button type="button" id="j_idt385:button" onclick="abreModal()"><span>Buscar</span></button></div>
+ <span id="atendimento"></span>
+</form>
+<div id="modalVincularAtendimentoRM" style="display:none;border:2px solid #333">
+ <table><tbody id="tabelaVincularAtendimento:resultList_data"></tbody></table>
+ <button type="button" id="j_idt645:button" disabled onclick="vincula()"><span>Selecionar</span></button>
+</div>
+<form id="formItens">
+ Material <input id="sbMaterial:sbMaterial:suggestion_input" disabled><input type="hidden" id="sbMaterial:sbMaterial:suggestion_hinput">
+ <div id="sbMaterial:sbMaterial:suggestion_panel" style="display:none"><table><tbody></tbody></table></div>
+ Quantidade <input id="qtd:qtd:inputId_input" size="5">
+ <button type="button" id="btGravarItem:button">Gravar</button>
+</form>
+<form id="formRequisicaoMaterialItens"><table><tbody id="j_idt502:resultList_data"></tbody></table></form>
+<script>
+const OPC={sbCCReq:{"31011":"FARMACIA"},sbCCAplicacao:{"31047":"HEMODINAMICA","34309":"10 NORTE"},sbAlmoxarifado:{"12":"NID IMAGEM - FARMÁCIA"},
+  sbMaterial:{"401557":"CATETER CENTRAL","24870":"INTRODUTOR"}};
+const itens=[]; window.LOG=[]; let atd="";
+function q(id){return document.getElementById(id);}
+function libera(){ const ok=["sbCCReq","sbCCAplicacao","sbAlmoxarifado"].every(b=>q(b+":"+b+":suggestion_hinput").value); q("sbMaterial:sbMaterial:suggestion_input").disabled=!ok; }
+function limpa(b){ const i=q(b+":"+b+":suggestion_input"); i.value=""; i.disabled=false; q(b+":"+b+":suggestion_hinput").value=""; libera(); }
+function fixa(b,c){ const i=q(b+":"+b+":suggestion_input"); i.value=c; q(b+":"+b+":suggestion_hinput").value="Obj"+c; if(b!=="sbMaterial") i.disabled=true; LOG.push(["cab",b,c]); libera(); }
+Object.keys(OPC).forEach(b=>{ const inp=q(b+":"+b+":suggestion_input"), pan=q(b+":"+b+":suggestion_panel");
+  inp.addEventListener("input",()=>setTimeout(()=>{ const t=inp.value.trim(); const ops=Object.entries(OPC[b]).filter(([c])=>c.startsWith(t));
+    pan.querySelector("tbody").innerHTML=ops.map(([c,d])=>`<tr class="ui-autocomplete-item" data-item-label="${c}"><td>${c}</td><td>${d}</td></tr>`).join("");
+    pan.style.display=ops.length?"block":"none";
+    pan.querySelectorAll("tr").forEach(tr=>tr.onclick=()=>{ fixa(b,tr.dataset.itemLabel); pan.style.display="none"; }); },120)); });
+function abreModal(){ if(!q("prontuarioEdicao:prontuarioEdicao:inputId").value) return;
+  q("tabelaVincularAtendimento:resultList_data").innerHTML=[["2742016","11/10/2026","0 N - 10º NORTE","Internação"],["2750001","12/11/2026","HEMODINAMICA","Ambulatório"]]
+   .map((r,i)=>`<tr data-ri="${i}"><td><input type="radio" name="group2" id="${r[0]}" onchange="q('j_idt645:button').disabled=false;window.sel='${r[0]}'"></td><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td></tr>`).join("");
+  q("modalVincularAtendimentoRM").style.display="block"; }
+function vincula(){ atd=window.sel; LOG.push(["atd",atd]); q("atendimento").innerText=atd; q("modalVincularAtendimentoRM").style.display="none";
+  fixa("sbCCAplicacao","34309"); }
+q("btGravarItem:button").onclick=()=>{ q("msgs").innerHTML="";
+  if(!atd){ q("msgs").innerHTML='<span class="ui-messages-error-summary">Ao informar um paciente é necessário selecionar o atendimento correspondente.</span>'; return; }
+  const m=q("sbMaterial:sbMaterial:suggestion_hinput").value.replace("Obj",""), qt=q("qtd:qtd:inputId_input").value; if(!m||!qt) return;
+  itens.push([m,qt]); LOG.push(["item",m,qt]);
+  q("j_idt502:resultList_data").innerHTML=itens.map((l,i)=>`<tr data-ri="${i}"><td>x</td><td>${l[0]} - ${OPC.sbMaterial[l[0]]}</td><td>G</td><td>${l[1]}</td></tr>`).join("");
+  q("sbMaterial:sbMaterial:suggestion_input").value=""; q("sbMaterial:sbMaterial:suggestion_hinput").value=""; q("qtd:qtd:inputId_input").value=""; };
+</script></body></html>

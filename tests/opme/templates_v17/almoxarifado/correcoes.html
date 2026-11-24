@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block titulo %}Correções · {{ APP_TITLE }}{% endblock %}
+
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <div>
+    <h1>Corrigir cadastro</h1>
+    <p>Toda alteração exige motivo e fica registrada no histórico do item.</p>
+  </div>
+  <div class="acoes"><a class="botao secundario" href="/almoxarifado">Voltar</a></div>
+</div>
+
+<form method="get" class="cartao">
+  <div class="filtros">
+    <div class="campo" style="flex:1">
+      <label>Buscar por produto, código de barras, lote, fornecedor ou ID</label>
+      <input type="text" name="busca" value="{{ busca }}" autofocus>
+    </div>
+    <button class="botao">Buscar</button>
+  </div>
+</form>
+
+{% if busca and grupos %}
+  {% for g in grupos %}
+    {% set chave = loop.index %}
+    <div class="cartao" style="border-left:5px solid var(--azul);margin-bottom:1rem">
+      <div class="entre" style="align-items:flex-start;flex-wrap:nowrap">
+        <div style="flex:1;min-width:0">
+          <h2 style="margin-bottom:.2rem">Corrigir {{ g.quantidade }} unidades de uma vez</h2>
+          <p class="suave pequeno" style="margin:0">
+            <strong>{{ g.xProd }}</strong> · lote {{ g.nLote or '—' }} ·
+            val. {{ g.dVal|data_br or '—' }} · código {{ g.codigo_barras or '—' }}<br>
+            Estas unidades foram cadastradas com exatamente os mesmos dados. Mude só
+            o que está errado — o resto fica como está.
+          </p>
+        </div>
+        <div style="text-align:right;flex:0 0 auto">
+          <div class="numero">{{ g.quantidade }}</div>
+          <div class="rotulo">unidades</div>
+        </div>
+      </div>
+
+      <form method="post" action="/almoxarifado/correcoes-lote" style="margin-top:1rem"
+            data-lote data-confirmar="Aplicar esta correção a {{ g.quantidade }} unidade(s)? Cada uma fica registrada no próprio histórico.">
+        <input type="hidden" name="busca" value="{{ busca }}">
+        {# O valor que a tela mostrou vai junto de cada campo: o servidor só
+           aplica o que foi de fato mudado. #}
+        {% set campos_lote = [
+          ("xProd", "Descrição", "text", g.xProd or ""),
+          ("codigo_barras", "Código de barras", "text", g.codigo_barras or ""),
+          ("codigo_aghu", "Código AGHU", "text", g.codigo_aghu or ""),
+          ("marca_fabricante", "Marca/Fabricante", "text", g.marca_fabricante or ""),
+          ("fornecedor", "Fornecedor", "text", g.fornecedor or ""),
+          ("nLote", "Lote", "text", g.nLote or ""),
+          ("dFab", "Fabricação", "date", g.dFab or ""),
+          ("dVal", "Validade", "date", g.dVal or ""),
+          ("vUnCom", "Valor unitário", "text", g.vUnCom or 0),
+        ] %}
+        <div class="grade grade-3">
+          {% for nome, rotulo, tipo, valor in campos_lote %}
+            <div class="campo">
+              <label>{{ rotulo }}</label>
+              <input type="{{ tipo }}" name="{{ nome }}" value="{{ valor }}"
+                     {% if nome == 'codigo_aghu' %}data-descritivo-alvo="lote-hc-{{ chave }}"{% endif %}>
+              <input type="hidden" name="original_{{ nome }}" value="{{ valor }}">
+              {% if nome == 'codigo_aghu' %}<div id="lote-hc-{{ chave }}" hidden></div>{% endif %}
+            </div>
+          {% endfor %}
+          <div class="campo">
+            <label>Classificação</label>
+            <select name="tipo_entrada">
+              {% for codigo, nome in tipos.items() %}
+                <option value="{{ codigo }}" {{ 'selected' if g.tipo_entrada == codigo }}>{{ nome }}</option>
+              {% endfor %}
+            </select>
+            <input type="hidden" name="original_tipo_entrada" value="{{ g.tipo_entrada or '' }}">
+          </div>
+        </div>
+        <p class="pequeno suave" style="margin:.2rem 0 .8rem">
+          O <strong>número de série</strong> não aparece aqui de propósito: ele é
+          individual de cada unidade. Para corrigi-lo, use a correção uma a uma, abaixo.
+        </p>
+
+        <details style="margin-bottom:.8rem">
+          <summary style="cursor:pointer" class="pequeno">
+            Unidades incluídas: <strong data-contagem>{{ g.quantidade }}</strong> de {{ g.quantidade }}
+            — clique para ver e tirar alguma da correção
+          </summary>
+          <label class="pequeno" style="display:flex;gap:.4rem;align-items:center;margin:.6rem 0;font-weight:600">
+            <input type="checkbox" data-marcar-todas checked style="width:auto"> marcar / desmarcar todas
+          </label>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(11rem,1fr));gap:.3rem .8rem">
+            {% for id_unidade in g.ids %}
+              <label class="mono pequeno" style="display:flex;gap:.35rem;align-items:center;font-weight:400">
+                <input type="checkbox" name="ids" value="{{ id_unidade }}" checked style="width:auto">
+                {{ id_unidade }}
+              </label>
+            {% endfor %}
+          </div>
+        </details>
+
+        <div class="campo">
+          <label class="obrigatorio">Motivo da correção</label>
+          <input type="text" name="motivo" required placeholder="Ex.: validade digitada errada na entrada manual">
+        </div>
+        <button class="botao">Corrigir as <span data-contagem>{{ g.quantidade }}</span> unidades</button>
+      </form>
+    </div>
+  {% endfor %}
+
+  <details class="cartao">
+    <summary style="cursor:pointer">
+      <strong>Ou corrija uma unidade por vez</strong>
+      <span class="suave pequeno">— para o número de série, ou quando só uma está errada ({{ itens|length }} encontrada(s))</span>
+    </summary>
+    <div style="margin-top:1rem">
+      {% include "almoxarifado/_correcao_individual.html" %}
+    </div>
+  </details>
+{% elif busca %}
+  {% include "almoxarifado/_correcao_individual.html" %}
+{% endif %}
+{% endblock %}

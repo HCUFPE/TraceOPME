@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block titulo %}Estoque da farmácia · {{ APP_TITLE }}{% endblock %}
+
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <div>
+    <h1>Estoque da {{ farmacias[farmacia] }}</h1>
+    <p>O que a farmácia tem para dispensar à sala, por material, lote e validade. Só entra aqui o que
+       a farmácia recebeu do almoxarifado e deu ciência.</p>
+  </div>
+  <div class="acoes"><a class="botao secundario" href="/farmacia">Voltar</a></div>
+</div>
+
+<div class="linha-botoes" style="margin-bottom:1rem">
+  {% for chave, nome in farmacias.items() %}
+    <a class="botao {{ '' if chave == farmacia else 'secundario' }}"
+       href="/farmacia/estoque?farmacia={{ chave|urlencode }}">{{ nome }} ({{ por_farmacia[chave] }})</a>
+  {% endfor %}
+</div>
+
+<form method="get" class="cartao">
+  <input type="hidden" name="farmacia" value="{{ farmacia }}">
+  <div class="filtros">
+    <div class="campo" style="flex:1">
+      <label>Buscar</label>
+      <input type="text" name="busca" value="{{ busca }}" placeholder="código AGHU, descrição, lote, código de barras ou fornecedor">
+    </div>
+    <button class="botao">Buscar</button>
+  </div>
+</form>
+
+<div class="cartao">
+  <div class="entre">
+    <h2>{{ total }} unidade(s) em estoque{% if busca %} para “{{ busca }}”{% endif %}</h2>
+    {% if a_caminho %}<a class="pequeno" href="/farmacia/recebimentos">+ {{ a_caminho }} a caminho (aguardando ciência)</a>{% endif %}
+  </div>
+  {% if linhas %}
+    <div class="tabela-rolagem">
+      <table>
+        <thead><tr><th>AGHU</th><th>Material</th><th>Lote</th><th>Validade</th><th>Fornecedor / marca</th><th class="num">Qtd.</th></tr></thead>
+        <tbody>
+          {% for l in linhas %}
+            <tr>
+              <td class="mono">{{ l.codigo_aghu or '—' }}</td>
+              <td>{{ l.xProd }}<br><span class="mono pequeno suave">{{ l.codigo_barras or '' }}</span></td>
+              <td class="mono">{{ l.nLote or '—' }}</td>
+              <td>{{ l.dVal|data_br or '—' }}</td>
+              <td class="pequeno">{{ l.fornecedor or '—' }}{% if l.marca_fabricante %}<br><span class="suave">{{ l.marca_fabricante }}</span>{% endif %}</td>
+              <td class="num"><strong>{{ l.quantidade }}</strong></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="vazio">Nenhum material no estoque desta farmácia{% if busca %} para essa busca{% endif %}.
+      O material entra aqui quando a farmácia dá ciência de um envio do almoxarifado.</p>
+  {% endif %}
+</div>
+{% endblock %}

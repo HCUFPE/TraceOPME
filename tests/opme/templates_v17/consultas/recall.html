@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block titulo %}Recall — bloqueio de lote · {{ APP_TITLE }}{% endblock %}
+
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <div>
+    <h1>Recall — bloqueio de lote</h1>
+    <p>Bloqueie um lote e o sistema passa a recusar qualquer movimentação dele em
+       direção ao paciente, em todas as áreas, na mesma hora.</p>
+  </div>
+  <div class="acoes"><a class="botao secundario" href="/consultas">Voltar</a></div>
+</div>
+
+<form method="post" action="/consultas/recall" class="cartao"
+      data-confirmar="Bloquear este lote? Ninguém conseguirá movimentá-lo até a liberação.">
+  <h2>Bloquear um lote</h2>
+  <div class="grade grade-2">
+    <div class="campo">
+      <label class="obrigatorio">Lote</label>
+      <input type="text" name="nLote" required placeholder="como está na embalagem">
+    </div>
+    <div class="campo">
+      <label>Código AGHU <span class="opcional">(opcional)</span></label>
+      <input type="text" name="codigo_aghu">
+      <div class="dica">
+        Em branco, bloqueia o lote em qualquer produto — é o mais seguro quando o
+        comunicado do fornecedor cita só o lote.
+      </div>
+    </div>
+    <div class="campo">
+      <label>Fornecedor <span class="opcional">(opcional)</span></label>
+      <input type="text" name="fornecedor">
+    </div>
+    <div class="campo">
+      <label>Referência <span class="opcional">(nº do comunicado, ofício, alerta)</span></label>
+      <input type="text" name="referencia">
+    </div>
+  </div>
+  <div class="campo">
+    <label class="obrigatorio">Motivo</label>
+    <input type="text" name="motivo" required
+           placeholder="Ex.: recall do fornecedor por falha de esterilização — comunicado 12/2026">
+    <div class="dica">Este texto aparece para quem tentar bipar o material.</div>
+  </div>
+  <button class="botao perigo">Bloquear lote</button>
+</form>
+
+<div class="cartao">
+  <h2>Lotes bloqueados</h2>
+  {% if bloqueios %}
+    <div class="tabela-rolagem">
+      <table>
+        <thead>
+          <tr><th>Lote</th><th>AGHU</th><th>Motivo</th>
+              <th class="num">Em circulação</th><th class="num">Já implantadas</th>
+              <th>Situação</th><th></th></tr>
+        </thead>
+        <tbody>
+          {% for b in bloqueios %}
+            <tr>
+              <td class="mono"><strong>{{ b.nLote }}</strong></td>
+              <td class="mono pequeno">{{ b.codigo_aghu or 'todos' }}</td>
+              <td class="pequeno">{{ b.motivo }}</td>
+              <td class="num">
+                {% if b.em_circulacao %}<span class="etiqueta vermelho">{{ b.em_circulacao }}</span>
+                {% else %}0{% endif %}
+              </td>
+              <td class="num">
+                {% if b.implantadas %}<span class="etiqueta amarelo">{{ b.implantadas }}</span>
+                {% else %}0{% endif %}
+              </td>
+              <td>
+                <span class="etiqueta {{ 'vermelho' if b.status == 'ativo' else 'cinza' }}">
+                  {{ 'Bloqueado' if b.status == 'ativo' else 'Liberado' }}
+                </span>
+              </td>
+              <td><a class="botao pequeno secundario"
+                     href="/consultas/recall/{{ b.id_bloqueio }}">Abrir</a></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="vazio">Nenhum lote bloqueado. É assim que se espera que fique.</p>
+  {% endif %}
+</div>
+{% endblock %}

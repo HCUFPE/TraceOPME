@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="TraceOPME">
+  <rect width="64" height="64" rx="14" fill="#0c3a67"/>
+  <g fill="#ffffff">
+    <rect x="11" y="15" width="3" height="26" rx="1"/>
+    <rect x="16.5" y="15" width="5" height="26" rx="1"/>
+    <rect x="24" y="15" width="2.5" height="26" rx="1"/>
+    <rect x="29" y="15" width="4" height="26" rx="1"/>
+  </g>
+  <path d="M35.5 15 V33 Q35.5 41 43.5 41 H47" fill="none" stroke="#2dd4a8" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="50" cy="41" r="5.5" fill="#2dd4a8"/>
+  <path d="M47.6 41.2 l1.7 1.8 l3.2 -3.6" fill="none" stroke="#0c3a67" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

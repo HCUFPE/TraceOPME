@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block titulo %}Caixa {{ t.id_caixa }} · {{ APP_TITLE }}{% endblock %}
+
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <div>
+    <h1>Caixa {{ t.id_caixa }} — {{ t.local }}</h1>
+    <p><strong>{{ t.nome_caixa }}</strong>{% if t.fornecedor %} · {{ t.fornecedor }}{% endif %} · dia {{ t.data|data_br }} ·
+       <span class="etiqueta {{ 'vermelho' if t.status == 'divergente' else ('amarelo' if t.status == 'devolvida' else 'verde') }}">{{ t.status_rotulo }}</span></p>
+    <p class="pequeno suave">Enviada por {{ t.enviada_por }} em {{ t.enviada_em|data_hora_br }}
+      {% if t.recebida_nome %} · ciência da sala: {{ t.recebida_nome }} em {{ t.recebida_em|data_hora_br }}{% endif %}
+      {% if t.devolvida_nome %} · devolvida por {{ t.devolvida_nome }} em {{ t.devolvida_em|data_hora_br }}{% endif %}
+      {% if t.conferida_nome %} · conferida por {{ t.conferida_nome }} em {{ t.conferida_em|data_hora_br }}{% endif %}</p>
+  </div>
+  <div class="acoes">
+    <a class="botao secundario" href="/farmacia/caixas-consignado/{{ t.id_caixa }}">Abrir a caixa</a>
+    <a class="botao secundario" href="/farmacia/caixas-sala">Voltar</a>
+  </div>
+</div>
+
+<div class="grade grade-4" style="margin-bottom:1.25rem">
+  <div class="cartao"><div class="rotulo">enviados</div><div class="numero">{{ t.qtd_enviada }}</div></div>
+  <div class="cartao"><div class="rotulo">usados nos pacientes</div><div class="numero">{{ t.usados }}</div></div>
+  <div class="cartao"><div class="rotulo">{{ 'devem voltar' if t.status in ('na_sala','devolvida','enviada') else 'voltaram' }}</div>
+    <div class="numero">{{ t.restam if t.status in ('na_sala','devolvida','enviada') else (t.qtd_voltou or 0) }}</div></div>
+  <div class="cartao"><div class="rotulo">faltaram</div><div class="numero">{{ t.qtd_faltou or 0 }}</div></div>
+</div>
+
+{% if t.status == 'devolvida' %}
+{% set devem = itens|selectattr('situacao', 'equalto', 'na_caixa')|list %}
+<form method="post" action="/farmacia/caixas-sala/{{ t.id_turno }}/conferir" class="cartao" id="form-conf"
+      style="border-left:5px solid var(--verde)">
+  <h2>Conferir a caixa</h2>
+  <p>A caixa deve voltar com <strong style="font-size:1.3rem">{{ devem|length }}</strong> item(ns).</p>
+  <div style="display:flex;gap:1.2rem;flex-wrap:wrap;margin:.3rem 0 .8rem">
+    <label style="display:flex;gap:.4rem;align-items:center;font-weight:600">
+      <input type="radio" name="modo" value="confere" checked style="width:auto"> Confere — voltaram os {{ devem|length }}</label>
+    <label style="display:flex;gap:.4rem;align-items:center;font-weight:600">
+      <input type="radio" name="modo" value="itens" style="width:auto"> Contagem diferente — conferir item a item</label>
+  </div>
+  <div id="lista-itens" hidden>
+    <p class="pequeno suave">Tudo vem marcado. <strong>Desmarque o que não voltou</strong>: a caixa fica bloqueada com
+      pendência e a sala é avisada (se foi uso não bipado, a sala bipa no paciente certo).</p>
+    <div class="tabela-rolagem"><table>
+      <thead><tr><th>Voltou?</th><th>Material</th><th>AGHU</th><th>Lote</th><th>Validade</th><th>Série</th></tr></thead>
+      <tbody>
+        {% for i in devem %}
+        <tr><td><input type="checkbox" name="presente" value="{{ i.id_unidade }}" checked style="width:1.3rem;height:1.3rem"></td>
+            <td>{{ i.produto }}</td><td class="mono pequeno">{{ i.codigo_aghu or '—' }}</td><td class="mono">{{ i.nLote or '—' }}</td>
+            <td>{{ i.dVal|data_br or '—' }}</td><td class="mono pequeno">{{ i.numero_serie or '—' }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table></div>
+  </div>
+  <button class="botao" style="margin-top:.8rem">Dar ciência do retorno da caixa</button>
+  <p class="pequeno suave" style="margin:.4rem 0 0">Fica registrado no login de quem está logado.</p>
+</form>
+<script>
+(function () {
+  var f = document.getElementById("form-conf"), l = document.getElementById("lista-itens");
+  f.querySelectorAll('input[name="modo"]').forEach(function (r) { r.addEventListener("change", function () {
+    l.hidden = f.querySelector('input[name="modo"]:checked').value !== "itens"; }); });
+  f.addEventListener("submit", function (e) {
+    if (f.querySelector('input[name="modo"]:checked').value !== "itens") return;
+    var faltam = f.querySelectorAll('input[name="presente"]:not(:checked)').length;
+    if (faltam && !confirm(faltam + " item(ns) desmarcado(s): a caixa fica BLOQUEADA com pendência. Confirmar?")) e.preventDefault();
+  });
+})();
+</script>
+{% elif t.status in ('conferida', 'divergente') and t.usados %}
+<div class="aviso {{ 'erro' if t.status == 'divergente' else 'sucesso' }}">
+  {% if t.status == 'divergente' %}<strong>Caixa bloqueada:</strong> {{ t.faltaram }} item(ns) não voltaram e a sala foi avisada.
+    Depois de resolver, confira e libere em <a href="/farmacia/caixas-consignado/{{ t.id_caixa }}">Abrir a caixa</a>.
+  {% else %}<strong>Reabastecer:</strong> {{ t.usados }} item(ns) foram usados. Bipe a reposição em
+    <a href="/farmacia/caixas-consignado/{{ t.id_caixa }}">Abrir a caixa</a>.{% endif %}
+</div>
+{% endif %}
+
+<div class="cartao">
+  <h2>Itens da caixa neste dia</h2>
+  <div class="tabela-rolagem"><table>
+    <thead><tr><th>Material</th><th>AGHU</th><th>Lote</th><th>Validade</th><th>Série</th><th>Situação</th></tr></thead>
+    <tbody>
+      {% for i in itens %}
+      <tr><td>{{ i.produto }}</td><td class="mono pequeno">{{ i.codigo_aghu or '—' }}</td><td class="mono">{{ i.nLote or '—' }}</td>
+          <td>{{ i.dVal|data_br or '—' }}</td><td class="mono pequeno">{{ i.numero_serie or '—' }}</td>
+          <td>{% if i.situacao == 'usado' %}<span class="etiqueta verde">usado</span> <span class="pequeno">prontuário {{ i.prontuario or '—' }} · {{ i.paciente or '' }}</span>
+              {% elif i.situacao == 'voltou' %}<span class="etiqueta cinza">voltou na caixa</span>
+              {% elif i.situacao == 'faltou' %}<span class="etiqueta vermelho">não voltou</span>
+              {% else %}<span class="etiqueta azul">na caixa</span>{% endif %}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table></div>
+</div>
+{% endblock %}

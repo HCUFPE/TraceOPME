@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block titulo %}Contagem {{ inv.id_inventario }} · {{ APP_TITLE }}{% endblock %}
+
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <div>
+    <h1>Contando {{ inv.local_rotulo }}</h1>
+    <p class="mono">{{ inv.id_inventario }}</p>
+    {% if inv.observacao %}<p>{{ inv.observacao }}</p>{% endif %}
+  </div>
+  <div class="acoes">
+    <a class="botao secundario" href="/inventario">Voltar</a>
+  </div>
+</div>
+
+<div id="tela-inventario" class="bipagem" data-inventario="{{ inv.id_inventario }}">
+  <div>
+    <div class="caixa-scanner">
+      <label for="codigo-inv">Bipe o código de barras</label>
+      <input type="text" id="codigo-inv" autocomplete="off" autocapitalize="off"
+             spellcheck="false" placeholder="aguardando leitura…" inputmode="text">
+      <div class="pequeno suave" style="margin-top:.4rem">
+        O campo fica sempre ativo. Bipe um material atrás do outro sem clicar em nada.
+        Pode bipar o mesmo código várias vezes — cada leitura conta uma unidade.
+      </div>
+
+      <div class="contador-grande" style="margin-top:1rem">
+        <div><div class="numero" id="inv-conferidos">{{ progresso.conferidos }}</div>
+             <div class="rotulo">conferidos</div></div>
+        <div><div class="numero" id="inv-faltam">{{ progresso.faltam }}</div>
+             <div class="rotulo">ainda não bipados</div></div>
+        <div><div class="numero" id="inv-pendencias">{{ progresso.pendencias }}</div>
+             <div class="rotulo">pendências</div></div>
+      </div>
+      <p class="pequeno suave" style="margin:.4rem 0 0">
+        O sistema espera <strong id="inv-esperados">{{ progresso.esperados }}</strong>
+        material(is) neste local. “Ainda não bipados” só vira falta de verdade
+        quando você encerrar a contagem.
+      </p>
+
+      <div id="resultado">
+        <div class="resultado-linha" style="background:var(--cinza-claro)">
+          <div class="icone">⌖</div>
+          <div><div class="titulo">Pronto para contar</div>
+               <div class="detalhe">O resultado de cada leitura aparece aqui.</div></div>
+        </div>
+      </div>
+
+      <div class="linha-botoes">
+        <button type="button" class="botao secundario" id="inv-confirmar" data-sem-foco="1">
+          Confirmar código digitado
+        </button>
+        <label class="pequeno" style="display:flex;align-items:center;gap:.4rem;font-weight:400">
+          <input type="checkbox" id="som" checked data-sem-foco="1" style="width:auto">
+          som de confirmação
+        </label>
+      </div>
+    </div>
+
+    <div class="cartao" style="margin-top:1rem">
+      <h2>Leituras desta contagem</h2>
+      <ul class="lista-bipados" id="inv-lista">
+        {% for l in leituras %}
+          <li>
+            <div class="produto">
+              <strong>{{ l.xProd or l.codigo_lido }}</strong>
+              <span>
+                {% if l.codigo_aghu %}AGHU {{ l.codigo_aghu }} · {% endif %}
+                lote {{ l.nLote or '—' }} · val. {{ l.dVal|data_br or '—' }}
+              </span>
+            </div>
+            <span class="etiqueta {{ 'verde' if l.situacao == 'confere' else 'amarelo' }}">
+              {{ l.situacao_rotulo }}
+            </span>
+          </li>
+        {% endfor %}
+      </ul>
+      {% if not leituras %}<p class="vazio">Nenhuma leitura ainda.</p>{% endif %}
+    </div>
+  </div>
+
+  <aside>
+    <div class="cartao" style="border-left:5px solid var(--verde)">
+      <h2>Encerrar e ver o relatório</h2>
+      <p class="suave pequeno">
+        Encerre só quando tiver bipado tudo que existe fisicamente aqui. No
+        relatório aparece o que faltou, o que estava em outro lugar e o que
+        apareceu a mais.
+      </p>
+      <p class="suave pequeno">
+        A contagem <strong>não move material</strong>: ela aponta as pendências e
+        você corrige depois, pelas telas normais, com o motivo registrado.
+      </p>
+      <form method="post" action="/inventario/{{ inv.id_inventario }}/encerrar"
+            data-confirmar="Encerrar a contagem {{ inv.id_inventario }}? Depois disso ela não aceita mais leituras.">
+        <button class="botao" data-sem-foco="1">Encerrar contagem</button>
+      </form>
+      <p class="pequeno suave" style="margin-top:.6rem">
+        Pode sair desta tela e voltar depois — a contagem fica aberta e as
+        leituras já feitas continuam registradas.
+      </p>
+    </div>
+
+    <div class="cartao" style="margin-top:1rem">
+      <h2>O que cada situação quer dizer</h2>
+      {% for chave, nome in situacoes.items() %}
+        <div style="padding:.4rem 0;border-bottom:1px solid var(--borda)">
+          <span class="etiqueta {{ 'verde' if chave == 'confere' else 'amarelo' }}">{{ nome }}</span>
+        </div>
+      {% endfor %}
+    </div>
+  </aside>
+</div>
+{% endblock %}

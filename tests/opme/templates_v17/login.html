@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block titulo %}Entrar · {{ APP_TITLE }}{% endblock %}
+
+{% block conteudo %}
+<div class="tela-login">
+  <div class="login-logo">
+    <img src="/static/logo.svg" alt="" width="84" height="84">
+    <h1>Trace<span class="marca-destaque">OPME</span></h1>
+  </div>
+  <p class="suave" style="text-align:center;margin-top:-.25rem">{{ APP_SUBTITLE }}</p>
+
+  <div class="cartao">
+    <div class="abas">
+      <button type="button" class="{{ 'ativa' if aba != 'cadastro' and aba != 'senha' }}" data-aba="entrar">Entrar</button>
+      <button type="button" class="{{ 'ativa' if aba == 'cadastro' }}" data-aba="cadastro">Solicitar acesso</button>
+      <button type="button" class="{{ 'ativa' if aba == 'senha' }}" data-aba="senha">Esqueci a senha</button>
+    </div>
+
+    <form method="post" action="/login" id="painel-entrar"
+          class="{{ 'oculto' if aba in ('cadastro', 'senha') }}">
+      <input type="hidden" name="proximo" value="{{ proximo }}">
+      <div class="campo">
+        <label for="username">Usuário</label>
+        <input type="text" id="username" name="username"
+               value="{{ username if username is defined and username else '' }}"
+               autocomplete="username" autofocus required>
+      </div>
+      <div class="campo">
+        <label for="senha">Senha</label>
+        <input type="password" id="senha" name="senha" autocomplete="current-password" required>
+      </div>
+      <button class="botao" style="width:100%">Entrar</button>
+    </form>
+
+    <form method="post" action="/solicitar-cadastro" id="painel-cadastro"
+          class="{{ '' if aba == 'cadastro' else 'oculto' }}">
+      <div class="campo">
+        <label class="obrigatorio">Nome completo</label>
+        <input type="text" name="nome" required>
+      </div>
+      <div class="campo">
+        <label class="obrigatorio">Usuário desejado</label>
+        <input type="text" name="username" required>
+      </div>
+      <div class="campo">
+        <label class="obrigatorio">Senha</label>
+        <input type="password" name="senha" required>
+        <div class="dica">Mínimo de 8 caracteres, com letras e números.</div>
+      </div>
+      <div class="grade grade-2">
+        <div class="campo"><label>E-mail</label><input type="email" name="email"></div>
+        <div class="campo"><label>Setor</label><input type="text" name="setor"></div>
+      </div>
+      <div class="campo">
+        <label>Perfil pretendido</label>
+        <select name="papel">
+          {% for codigo, dados in papeis.items() if codigo != 'admin' %}
+            <option value="{{ codigo }}">{{ dados[0] }}</option>
+          {% endfor %}
+        </select>
+        <div class="dica">O administrador confirma o perfil ao liberar o acesso.</div>
+      </div>
+      <button class="botao" style="width:100%">Enviar solicitação</button>
+    </form>
+
+    <form method="post" action="/solicitar-senha" id="painel-senha"
+          class="{{ '' if aba == 'senha' else 'oculto' }}">
+      <div class="campo"><label class="obrigatorio">Usuário</label><input type="text" name="username" required></div>
+      <div class="campo"><label>E-mail cadastrado</label><input type="email" name="email"></div>
+      <div class="campo">
+        <label class="obrigatorio">Nova senha desejada</label>
+        <input type="password" name="senha" required>
+        <div class="dica">A senha só passa a valer depois da aprovação do administrador.</div>
+      </div>
+      <div class="campo"><label>Observação</label><input type="text" name="observacao"></div>
+      <button class="botao" style="width:100%">Solicitar redefinição</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.querySelectorAll(".abas button").forEach(function (botao) {
+    botao.addEventListener("click", function () {
+      document.querySelectorAll(".abas button").forEach(b => b.classList.remove("ativa"));
+      botao.classList.add("ativa");
+      ["entrar", "cadastro", "senha"].forEach(function (nome) {
+        document.getElementById("painel-" + nome)
+                .classList.toggle("oculto", nome !== botao.dataset.aba);
+      });
+    });
+  });
+</script>
+{% endblock %}

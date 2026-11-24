@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block titulo %}{{ titulo }} · {{ APP_TITLE }}{% endblock %}
+
+{% block conteudo %}
+<div class="cartao" style="max-width:560px;margin:3rem auto;text-align:center">
+  <div class="numero">{{ codigo }}</div>
+  <h1>{{ titulo }}</h1>
+  <p class="suave">{{ detalhe }}</p>
+  <a class="botao" href="/">Voltar ao painel</a>
+</div>
+{% endblock %}

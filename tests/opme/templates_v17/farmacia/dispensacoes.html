@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block titulo %}Dispensações · {{ APP_TITLE }}{% endblock %}
+
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <div>
+    <h1>Dispensações aguardando a confirmação da sala</h1>
+    <p>OPME que saiu da farmácia e ainda não teve o recebimento confirmado pelo operador da sala.</p>
+  </div>
+  <div class="acoes">
+    <a class="botao" href="/farmacia/atendimentos">Nova dispensação</a>
+    <a class="botao secundario" href="/farmacia">Voltar</a>
+  </div>
+</div>
+
+{% include "sala_procedimento/_unidade.html" %}
+
+<div class="cartao">
+  <h2>Aguardando ({{ pendentes|length }})</h2>
+  {% if pendentes %}
+  <div class="tabela-rolagem"><table>
+    <thead><tr><th>Desde</th><th>Prontuário</th><th>Local</th><th>Dispensado por</th><th class="num">Itens</th><th></th></tr></thead>
+    <tbody>
+      {% for d in pendentes %}
+      <tr>
+        <td class="pequeno">{{ d.criado_em|data_hora_br }}</td>
+        <td><strong>{{ d.prontuario }}</strong>{% if d.paciente %}<br><span class="suave pequeno">{{ d.paciente }}</span>{% endif %}</td>
+        <td class="pequeno">{{ rotulo_unidade(d.unidade) }} — sala {{ d.sala }}</td>
+        <td class="pequeno">{{ d.criado_por }}</td>
+        <td class="num">{{ d.qtd }}</td>
+        <td><a class="botao pequeno" href="/dispensacoes/{{ d.id_dispensacao }}">Abrir</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}<p class="vazio">Nenhuma dispensação aguardando.</p>{% endif %}
+</div>
+
+{% if confirmadas %}
+<div class="cartao">
+  <h2>Confirmadas recentemente</h2>
+  <div class="tabela-rolagem"><table>
+    <thead><tr><th>Confirmada em</th><th>Prontuário</th><th>Local</th><th>Dispensado por</th><th>Recebido por (sala)</th><th class="num">Itens</th><th></th></tr></thead>
+    <tbody>
+      {% for d in confirmadas %}
+      <tr>
+        <td class="pequeno">{{ d.confirmada_em|data_hora_br }}</td>
+        <td>{{ d.prontuario }}</td>
+        <td class="pequeno">{{ rotulo_unidade(d.unidade) }} — sala {{ d.sala }}</td>
+        <td class="pequeno">{{ d.criado_por }}</td>
+        <td><span class="etiqueta verde">{{ d.recebido_por }}</span></td>
+        <td class="num">{{ d.qtd }}</td>
+        <td><a class="pequeno" href="/dispensacoes/{{ d.id_dispensacao }}">ver</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table></div>
+</div>
+{% endif %}
+{% endblock %}

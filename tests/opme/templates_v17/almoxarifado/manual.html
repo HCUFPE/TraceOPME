@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block titulo %}Cadastro manual · {{ APP_TITLE }}{% endblock %}
+
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <div>
+    <h1>Cadastro manual de material</h1>
+    <p>Use para consignados, doações, empréstimos e itens sem XML de NF-e.</p>
+  </div>
+  <div class="acoes"><a class="botao secundario" href="/almoxarifado">Voltar</a></div>
+</div>
+
+<form method="post" class="cartao" style="max-width:900px">
+  <div class="grade grade-2">
+    <div class="campo">
+      <label class="obrigatorio">Descrição do produto</label>
+      <input type="text" name="xProd" value="{{ valores.xProd if valores else '' }}" required>
+    </div>
+    <div class="campo">
+      <label class="obrigatorio">Código de barras</label>
+      <input type="text" id="codigo-barras" name="codigo_barras"
+             value="{{ valores.codigo_barras if valores else '' }}" required>
+      <div class="dica">Pode bipar direto neste campo.</div>
+      <label class="pequeno" style="display:flex;gap:.4rem;align-items:center;font-weight:400;margin-top:.5rem">
+        <input type="checkbox" id="sem-codigo" name="sem_codigo_barras" value="1"
+               style="width:auto" {{ 'checked' if valores and valores.sem_codigo_barras }}>
+        Item <strong>sem código de barras</strong> — gerar um código interno e etiqueta QR
+      </label>
+      <div class="dica" id="dica-qr" hidden>
+        O código é montado como <span class="mono">CÓDIGO AGHU(LOTE)</span> — preencha
+        esses dois campos abaixo. A etiqueta abre para imprimir logo após salvar;
+        cole na embalagem antes de guardar o material.
+      </div>
+    </div>
+    <div class="campo">
+      <label class="obrigatorio">Código AGHU</label>
+      <input type="text" id="codigo-aghu" name="codigo_aghu"
+             value="{{ valores.codigo_aghu if valores else '' }}" required
+             data-descritivo-alvo="descritivo-hospital">
+      <div id="descritivo-hospital" hidden></div>
+    </div>
+    <div class="campo">
+      <label class="obrigatorio">Fornecedor</label>
+      <input type="text" name="fornecedor" value="{{ valores.fornecedor if valores else '' }}" required>
+    </div>
+    <div class="campo">
+      <label class="obrigatorio">Marca / Fabricante</label>
+      <input type="text" name="marca_fabricante" value="{{ valores.marca_fabricante if valores else '' }}" required>
+    </div>
+    <div class="campo">
+      <label class="obrigatorio">Lote</label>
+      <input type="text" name="nLote" value="{{ valores.nLote if valores else '' }}" required>
+    </div>
+    <div class="campo">
+      <label>Fabricação</label>
+      <input type="date" name="dFab" value="{{ valores.dFab if valores else '' }}">
+    </div>
+    <div class="campo">
+      <label>Validade</label>
+      <input type="date" name="dVal" value="{{ valores.dVal if valores else '' }}">
+    </div>
+    <div class="campo">
+      <label class="obrigatorio">Quantidade</label>
+      <input type="number" name="quantidade" min="1" max="500"
+             value="{{ valores.quantidade if valores else '1' }}" required>
+      <div class="dica">Cada unidade recebe um identificador próprio para rastreio individual.</div>
+    </div>
+    <div class="campo">
+      <label>Valor unitário</label>
+      <input type="text" name="vUnCom" value="{{ valores.vUnCom if valores else '' }}" placeholder="0,00">
+    </div>
+    <div class="campo">
+      <label>Classificação</label>
+      <select name="tipo_entrada">
+        {% for codigo, nome in tipos.items() %}
+          <option value="{{ codigo }}" {{ 'selected' if valores and valores.tipo_entrada == codigo }}>{{ nome }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="campo">
+      <label>Número da NF <span class="opcional">(se houver)</span></label>
+      <input type="text" name="numero_nf" value="{{ valores.numero_nf if valores else '' }}">
+    </div>
+  </div>
+
+  <div class="campo">
+    <label>Números de série <span class="opcional">(um por linha, opcional)</span></label>
+    <textarea name="numeros_serie" rows="3">{{ valores.numeros_serie if valores else '' }}</textarea>
+    <div class="dica">Se informar, a quantidade de linhas precisa ser igual à quantidade cadastrada.</div>
+  </div>
+
+  <div class="linha-botoes">
+    <button class="botao">Cadastrar unidades</button>
+    <a class="botao secundario" href="/almoxarifado/etiquetas">Reimprimir etiqueta</a>
+    <a class="botao secundario" href="/almoxarifado">Cancelar</a>
+  </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (function () {
+    const marcador = document.getElementById("sem-codigo");
+    const campo = document.getElementById("codigo-barras");
+    const dica = document.getElementById("dica-qr");
+    if (!marcador || !campo) return;
+
+    function aplicar() {
+      // Com o código gerado pelo sistema, o campo deixa de ser obrigatório —
+      // e fica desabilitado para não sobrar um valor digitado por engano.
+      campo.disabled = marcador.checked;
+      campo.required = !marcador.checked;
+      if (marcador.checked) campo.value = "";
+      campo.placeholder = marcador.checked ? "gerado automaticamente ao salvar" : "";
+      if (dica) dica.hidden = !marcador.checked;
+    }
+    marcador.addEventListener("change", aplicar);
+    aplicar();
+  })();
+
+</script>
+{% endblock %}

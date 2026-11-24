@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block titulo %}Movimentações de dispensa · {{ APP_TITLE }}{% endblock %}
+
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <div>
+    <h1>Movimentações de dispensa</h1>
+    <p>Tudo que saiu do almoxarifado para as farmácias e das farmácias para a sala, no período.
+       Uma linha por unidade; a data é a do bip de saída.</p>
+  </div>
+  <div class="acoes"><a class="botao secundario" href="/consultas">Voltar</a></div>
+</div>
+
+<form method="get" class="cartao">
+  <div class="filtros">
+    <div class="campo"><label>De</label><input type="date" name="inicio" value="{{ inicio }}"></div>
+    <div class="campo"><label>Até</label><input type="date" name="fim" value="{{ fim }}"></div>
+    <div class="campo"><label>Movimentação</label>
+      <select name="tipo">
+        {% for k, nome in tipos.items() %}<option value="{{ k }}" {{ 'selected' if tipo == k }}>{{ nome }}</option>{% endfor %}
+      </select></div>
+    <div class="campo"><label>Farmácia</label>
+      <select name="farmacia">
+        <option value="">todas</option>
+        {% for k, nome in farmacias.items() %}<option value="{{ k }}" {{ 'selected' if farmacia == k }}>{{ nome }}</option>{% endfor %}
+      </select></div>
+    <div class="campo" style="flex:1"><label>Buscar</label>
+      <input type="text" name="busca" value="{{ busca }}" placeholder="AGHU, descrição, lote, série ou prontuário"></div>
+    <button class="botao">Filtrar</button>
+  </div>
+  <p class="pequeno suave" style="margin:.4rem 0 0">Farmácia: no envio do almoxarifado é a farmácia de destino;
+    na dispensação para a sala é a farmácia que dispensou (Bloco Cirúrgico ou Hemodinâmica).</p>
+</form>
+
+<div class="grade grade-4" style="margin-bottom:1.25rem">
+  <div class="cartao"><div class="rotulo">unidades movimentadas</div><div class="numero">{{ resumo.total }}</div></div>
+  <div class="cartao"><div class="rotulo">almoxarifado → farmácia</div><div class="numero">{{ resumo.envios }}</div></div>
+  <div class="cartao"><div class="rotulo">farmácia → sala</div><div class="numero">{{ resumo.dispensacoes }}</div></div>
+  <div class="cartao"><div class="rotulo">retiradas antes de sair</div><div class="numero">{{ resumo.retirados }}</div></div>
+</div>
+
+{% if resumo.por_aghu %}
+<div class="cartao" style="margin-bottom:1.25rem">
+  <div class="entre"><h2>Por material (código AGHU)</h2>
+    <span class="pequeno suave">{% for k, v in resumo.por_fluxo %}{{ k }}: <strong>{{ v }}</strong>{% if not loop.last %} · {% endif %}{% endfor %}</span></div>
+  <div class="tabela-rolagem">
+    <table>
+      <thead><tr><th>AGHU</th><th>Descrição AGHU</th><th class="num">Almoxarifado → Farmácia</th><th class="num">Farmácia → Sala</th></tr></thead>
+      <tbody>
+        {% for r in resumo.por_aghu %}
+          <tr><td class="mono">{{ r.codigo_aghu }}</td><td>{{ r.descricao }}</td>
+              <td class="num">{{ r.envios }}</td><td class="num">{{ r.dispensacoes }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<div class="cartao">
+  <div class="entre">
+    <h2>{{ linhas|length }} movimentação(ões)</h2>
+    {% if linhas %}
+    <div class="linha-botoes">
+      <a class="botao secundario" href="?inicio={{ inicio }}&fim={{ fim }}&tipo={{ tipo }}&farmacia={{ farmacia|urlencode }}&busca={{ busca|urlencode }}&exportar=csv">Exportar planilha (CSV)</a>
+      <a class="botao" href="?inicio={{ inicio }}&fim={{ fim }}&tipo={{ tipo }}&farmacia={{ farmacia|urlencode }}&busca={{ busca|urlencode }}&exportar=pdf">Baixar PDF</a>
+    </div>
+    {% endif %}
+  </div>
+  {% if linhas %}
+    <div class="tabela-rolagem">
+      <table>
+        <thead><tr><th>Data</th><th>Movimentação</th><th>Documento</th><th>Material (descrição AGHU)</th><th>Lote</th>
+                   <th>Validade</th><th>Nº série</th><th>Paciente</th><th>Por</th><th>Situação</th></tr></thead>
+        <tbody>
+          {% for l in linhas %}
+            <tr{% if not l.conta %} style="opacity:.6"{% endif %}>
+              <td class="pequeno">{{ l.data|data_hora_br }}</td>
+              <td class="pequeno"><strong>{{ l.origem }}</strong> → {{ l.destino }}</td>
+              <td class="mono pequeno">{{ l.documento }}</td>
+              <td>{{ l.descricao }}<br><span class="mono pequeno suave">AGHU {{ l.codigo_aghu or '—' }}</span></td>
+              <td class="mono">{{ l.lote or '—' }}</td>
+              <td>{{ l.validade|data_br or '—' }}</td>
+              <td class="mono pequeno">{{ l.serie or '—' }}</td>
+              <td class="pequeno">{% if l.prontuario %}{{ l.prontuario }} · {{ l.paciente }}<br>
+                  <span class="suave">{{ l.unidade }}{% if l.especialidade %} · {{ l.especialidade }}{% endif %}</span>{% else %}—{% endif %}</td>
+              <td class="pequeno">{{ l.por or '—' }}</td>
+              <td class="pequeno">{{ l.situacao }}{% if l.recebido_por %}<br><span class="suave">por {{ l.recebido_por }}</span>{% endif %}
+                  <br><span class="suave">hoje: {{ l.situacao_atual }}</span></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="vazio">Nenhuma movimentação de dispensa no período.</p>
+  {% endif %}
+</div>
+{% endblock %}

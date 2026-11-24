@@ -1,0 +1,26 @@
+TraceOPME — como restaurar uma cópia de segurança
+==================================================
+
+Onde estão as cópias
+  1. No servidor:   <pasta do TraceOPME>\data\backups\opme_AAAA-MM-DD.db   (últimas 30)
+  2. Fora dele:     a pasta configurada em BACKUP_PASTA_EXTERNA no .env     (últimas 60)
+  A situação das duas aparece em Administração → Cópia de segurança.
+
+Para restaurar (ex.: o disco do servidor falhou ou o banco foi apagado)
+  1. PARE o TraceOPME (feche a janela do rodar.bat ou pare o serviço).
+  2. Se ainda existir, renomeie o banco atual: data\opme.db  ->  data\opme_ANTIGO.db
+     (e, se existirem, data\opme.db-wal e data\opme.db-shm -> apague ou renomeie também).
+  3. Copie a cópia escolhida (a mais recente, normalmente) para data\ e renomeie para opme.db.
+     Faça o mesmo com o app_AAAA-MM-DD.db do MESMO dia: renomeie para app.db (banco administrativo).
+  4. Abra o TraceOPME de novo (rodar.bat). Ele confere a estrutura do banco ao abrir.
+  5. Entre e confira em Consultas se os últimos registros estão lá. O que foi feito
+     depois do horário da cópia (normalmente 02:00) precisa ser lançado de novo.
+
+Teste de restauração (recomendado 1 vez por semestre)
+  Faça os passos acima numa CÓPIA da pasta do TraceOPME, em outra porta (troque a porta
+  no rodar.bat), sem mexer no sistema em uso. Se abrir e as Consultas mostrarem os dados,
+  o backup está bom.
+
+Não copie o arquivo data\opme.db com o sistema LIGADO: a cópia pode sair pela metade.
+Use sempre as cópias de data\backups (feitas pelo próprio sistema) ou o botão
+"Gerar cópia agora" na Administração.

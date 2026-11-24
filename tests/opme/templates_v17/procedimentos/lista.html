@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% block titulo %}Procedimentos · {{ APP_TITLE }}{% endblock %}
+
+{% block conteudo %}
+<div class="cabecalho-pagina">
+  <div>
+    <h1>Procedimentos</h1>
+    <p>Procedimentos do dia, para todas as áreas. Abra aqui o procedimento que não veio na agenda.</p>
+  </div>
+  <div class="acoes"><a class="botao" href="#novo">Abrir procedimento</a></div>
+</div>
+
+<form method="get" class="cartao" style="display:flex;gap:.6rem;align-items:flex-end;flex-wrap:wrap">
+  <div class="campo" style="margin:0"><label>Data</label>
+    <input type="date" name="data" value="{{ data }}"></div>
+  <div class="campo" style="margin:0"><label>Unidade</label>
+    <select name="unidade">
+      <option value="">todas</option>
+      {% for chave, u in UNIDADES.items() %}<option value="{{ chave }}" {% if chave == unidade %}selected{% endif %}>{{ u.rotulo }}</option>{% endfor %}
+    </select></div>
+  <div class="campo" style="margin:0"><label>Sala</label>
+    <input type="text" name="sala" value="{{ sala }}" style="width:5rem"></div>
+  <div class="campo" style="margin:0"><label>Prontuário ou paciente</label>
+    <input type="text" name="prontuario" value="{{ prontuario }}"></div>
+  <label class="pequeno" style="display:flex;gap:.3rem;align-items:center">
+    <input type="checkbox" name="so_opme" value="1" {% if so_opme %}checked{% endif %} style="width:auto"> só com OPME</label>
+  <button class="botao secundario">Filtrar</button>
+</form>
+
+<div class="cartao">
+  <h2>{{ data|data_br }} — {{ atendimentos|length }} procedimento(s)</h2>
+  {% if atendimentos %}
+  <div class="tabela-rolagem">
+    <table>
+      <thead><tr><th>Hora</th><th>Local</th><th>Prontuário</th><th>Paciente</th><th>OPME solicitado</th>
+                 <th>Situação</th><th></th></tr></thead>
+      <tbody>
+        {% for a in atendimentos %}
+        <tr>
+          <td class="pequeno">{{ a.hora_inicio or '—' }}</td>
+          <td class="pequeno">{{ rotulo_unidade(a.unidade) }} — sala {{ a.sala }}</td>
+          <td><strong>{{ a.prontuario }}</strong></td>
+          <td class="pequeno">{{ a.paciente or '—' }}</td>
+          <td class="pequeno" style="max-width:20rem;white-space:pre-wrap">{% set so = solicitacoes.get(a.id_atendimento) %}{% if so %}<a href="/sala-procedimento/atendimento/{{ a.id_atendimento }}#solicitacao"><span class="etiqueta {{ 'verde' if not so.faltando else 'amarelo' }}">solicitação: {{ so.atendidas }}/{{ so.linhas }} atendido(s)</span></a>{% if so.nao_solicitados %} <span class="etiqueta vermelho">{{ so.nao_solicitados }} sem solicitação</span>{% endif %}{% if a.opme_solicitado %}<br>{% endif %}{% endif %}{{ a.opme_solicitado or ('' if so else '—') }}</td>
+          <td class="pequeno">
+            {% if a.status != 'aberto' %}<span class="etiqueta cinza">{{ a.status }}</span>{% endif %}
+            {% if a.qtd_transito %}<span class="etiqueta amarelo">{{ a.qtd_transito }} aguardando a sala</span>{% endif %}
+            {% if a.qtd_na_sala %}<span class="etiqueta verde">{{ a.qtd_na_sala }} na sala</span>{% endif %}
+            {% if a.qtd_utilizados %}<span class="etiqueta azul">{{ a.qtd_utilizados }} usado(s)</span>{% endif %}
+          </td>
+          <td style="white-space:nowrap">
+            {% if a.status == 'aberto' and 'farmacia' in modulos %}
+              <a class="botao pequeno" href="/bipagem/dispensar_sala?atendimento={{ a.id_atendimento }}">Dispensar</a>
+            {% endif %}
+            {% if 'sala-procedimento' in modulos %}
+              {% if a.status == 'aberto' and not a.uso_finalizado_em %}<a class="botao pequeno secundario" href="/sala-procedimento/atendimento/{{ a.id_atendimento }}/solicitacao">Solicitar OPME</a>{% endif %}
+              {% if a.status == 'aberto' %}<a class="botao pequeno" href="/bipagem/registrar_uso?atendimento={{ a.id_atendimento }}">Registrar uso</a>{% endif %}
+              <a class="botao pequeno secundario" href="/sala-procedimento/atendimento/{{ a.id_atendimento }}">Ficha</a>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <p class="vazio">Nenhum procedimento nesta data com os filtros atuais. Abra abaixo ou importe a agenda.</p>
+  {% endif %}
+</div>
+
+<div class="grade grade-2" id="novo">
+  <form method="post" action="/procedimentos" class="cartao">
+    <h2>Abrir procedimento</h2>
+    <p class="suave pequeno">Para procedimento fora da agenda importada.</p>
+    <div class="grade grade-2">
+      <div class="campo"><label class="obrigatorio">Prontuário</label>
+        <input type="text" name="prontuario" required inputmode="numeric"></div>
+      <div class="campo"><label>Paciente <span class="opcional">(opcional)</span></label>
+        <input type="text" name="paciente"></div>
+      <div class="campo">
+        <label class="obrigatorio">Local</label>
+        <select name="local" required>
+          {% for chave, sala_opcao, rotulo in locais %}
+            <option value="{{ chave }}|{{ sala_opcao }}">{{ rotulo }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="campo">
+        <label class="obrigatorio">Especialidade</label>
+        <select name="especialidade" required>
+          <option value="">— escolha —</option>
+          {% for valor, rotulo in especialidades_hospital %}<option value="{{ valor }}">{{ rotulo }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="campo"><label class="obrigatorio">Data</label>
+        <input type="date" name="data_procedimento" value="{{ data }}" required></div>
+      <div class="campo"><label>Hora prevista</label>
+        <input type="text" name="hora_inicio" placeholder="07:30"></div>
+    </div>
+    <div class="campo">
+      <label>OPME solicitado <span class="opcional">(opcional)</span></label>
+      <textarea name="opme_solicitado" rows="2" placeholder="O que a equipe pediu"></textarea>
+    </div>
+    <div class="linha-botoes">
+      {% if 'farmacia' in modulos %}<button class="botao" name="seguir" value="dispensar">Abrir e dispensar</button>{% endif %}
+      {% if 'sala-procedimento' in modulos %}<button class="botao" name="seguir" value="solicitar">Abrir e solicitar OPME</button>{% endif %}
+      {% if 'sala-procedimento' in modulos %}<button class="botao" name="seguir" value="uso">Abrir e registrar uso</button>{% endif %}
+      <button class="botao secundario">Abrir</button>
+    </div>
+  </form>
+
+  <form method="post" action="/procedimentos/agenda" enctype="multipart/form-data" class="cartao">
+    <h2>Importar agenda</h2>
+    <div class="campo">
+      <label>Arquivo CSV</label>
+      <input type="file" name="arquivo" accept=".csv,text/csv" required>
+      <div class="dica">
+        Aceita o export do AGHU direto, sem edição: reconhece as colunas
+        <span class="mono">prontuario</span>, <span class="mono">sala</span>,
+        <span class="mono">descricao_unidade_funcional</span>,
+        <span class="mono">dthr_inicio_cirg</span> e <span class="mono">especialidade</span>,
+        e extrai o pedido de OPME de <span class="mono">solicitacao_especial</span>.
+      </div>
+    </div>
+    <p class="suave pequeno">Reimportar o mesmo arquivo não duplica.</p>
+    <button class="botao secundario">Importar</button>
+  </form>
+</div>
+{% endblock %}
